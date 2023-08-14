@@ -1,0 +1,16 @@
+Trait,Env1_Env2,Vg1,Vg2,Rg
+Aboveground_Biomass,Ambient_Local-Rural,0.00235262,0.004416758,0.558
+Aboveground_Biomass,Ambient_Local-Urban,0.00235262,0.005525102,0.301
+Aboveground_Biomass,Ambient_Rural-Urban,0.004416758,0.005525102,0.194
+Aboveground_Biomass,Addition_Local-Rural,0.01179131,0.008320241,0.447
+Aboveground_Biomass,Addition_Local-Urban,0.01179131,0.004351138,0.639
+Aboveground_Biomass,Addition_Rural-Urban,0.008320241,0.004351138,0.591
+Nodule_Density,Ambient_Local-Rural,0.003770594,0.011204276,0.053
+Nodule_Density,Ambient_Local-Urban,0.003770594,0.02479973,0.153
+Nodule_Density,Ambient_Rural-Urban,0.011204276,0.02479973,-0.282
+Nodule_Density,Addition_Local-Rural,0.005721497,0.006398608,0.311
+Nodule_Density,Addition_Local-Urban,0.005721497,0.013688029,0.254
+Nodule_Density,Addition_Rural-Urban,0.006398608,0.013688029,-0.05
+Fixing_Nodule_Density,Local-Rural,0.002150207,0.001855129,0.251
+Fixing_Nodule_Density,Local-Urban,0.002150207,0.003078031,0.305
+Fixing_Nodule_Density,Rural-Urban,0.001855129,0.003078031,-0.015

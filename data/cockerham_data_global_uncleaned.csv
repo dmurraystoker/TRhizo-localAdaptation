@@ -1,0 +1,9 @@
+Trait,Microbiome,Nitrogen,Vg
+Aboveground_Biomass,Local,Combined,0.004679110326787717
+Aboveground_Biomass,Nonlocal,Combined,0.0035640846741708558
+Nodule_Density,Local,Ambient_N,0.0037705941906056016
+Nodule_Density,Nonlocal,Ambient_N,0.006739499793036958
+Nodule_Density,Local,N_Addition,0.005721497366953795
+Nodule_Density,Nonlocal,N_Addition,0.004808950971529059
+Fixing_Nodule_Density,Local,Combined,0.002150206942281695
+Fixing_Nodule_Density,Nonlocal,Combined,0.0012820017971465491

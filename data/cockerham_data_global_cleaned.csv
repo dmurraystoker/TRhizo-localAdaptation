@@ -1,0 +1,5 @@
+Trait,Env1_Env2,Vg1,Vg2,Rg
+Aboveground_Biomass,Local-Nonlocal,0.00467911,0.003564085,0.604
+Nodule_Density,Ambient_Local-Nonlocal,0.003770594,0.0067395,0.184
+Nodule_Density,Addition_Local-Nonlocal,0.005721497,0.004808951,0.512
+Fixing_Nodule_Density,Local-Nonlocal,0.002150207,0.001282002,0.359
