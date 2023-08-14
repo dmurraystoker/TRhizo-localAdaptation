@@ -1,0 +1,2916 @@
+---
+title: "TRhizo-localAdaptation"
+subtitle: "Figures"
+author: "David Murray-Stoker"
+output:
+  pdf_document:
+    toc: true
+    toc_depth: 4
+    fig_caption: yes
+    latex_engine: xelatex
+always_allow_html: true
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+options(knitr.graphics.error = FALSE)
+knitr::opts_chunk$set(results = "hold", fig.pos = "H", fig.align = "center", out.width = "92.5%")
+kableExtra::usepackage_latex("float")
+```
+
+```{r Load Packages for R Markdown, include = FALSE}
+library(kableExtra)
+library(knitr)
+```
+
+
+
+
+
+\newpage
+# Load Packages & Data
+
+```{r Load Packages & Data, echo = TRUE, results = "hide"}
+## Load the tidyverse
+library(tidyverse)
+
+## Package for ordination plots
+library(vegan)
+
+## Package for figures
+library(ggpubr)
+
+## Packages for the site map
+library(ggmap, quietly = TRUE)
+library(ggsn)
+library(sp)
+library(sf)
+
+## Packages for colour palettes
+library(scales)
+library(viridis)
+
+## Read in site information data
+site.information.data <- read_csv(
+  "data/localAdaptation-site_information.csv",
+  # col_types = c("fnnf"),
+  show_col_types = FALSE
+)
+
+## Read in biomass and nodule data
+biomass.data <- read_rds("data/cleaned_biomass_data.rds")
+nodule.data  <- read_rds("data/cleaned_nodule_data.rds")
+
+## Recode to Microbiome Global to test for global effects
+# Biomass data
+biomass.data$Microbiome_Global<- if_else(
+  biomass.data$Microbiome == "Local", "Local", "Nonlocal_Global"
+)
+# Nodule data
+nodule.data$Microbiome_Global<- if_else(
+  nodule.data$Microbiome == "Local", "Local", "Nonlocal_Global"
+)
+```
+
+```{r Set Colour Palettes, include = FALSE, results = "hide"}
+## Site Map---------------------------------------------------------------#
+## Set the colour palette
+plasma.continuous <- plasma(n = 12)
+
+# View the colour palette
+#show_col(plasma.continuous)
+
+# Set the site map palette
+plasma.site.map <- c(
+  "Inoculant" = "#FCD225FF", "Rural" = "#0D0887FF", "Urban" = "#C03A83FF"
+)
+
+
+## Microbiome-------------------------------------------------------------#
+## Set the colour palette
+plasma.continuous <- plasma(n = 12)
+
+# View the colour palette
+#show_col(plasma.continuous)
+
+# Set the Microbiome palette
+plasma.microbiome <- plasma.continuous[c(1, 6, 11)]
+
+# Set the Microbiome_Global palette
+plasma.microbiome.global <- plasma.continuous[c(11, 4)]
+
+# Set the Microbiome_Global palette
+plasma.microbiome.dissimilarity <- plasma.continuous[8]
+
+
+## Nitrogen---------------------------------------------------------------#
+## Set the colour palette
+magma.continuous <- magma(n = 16)
+
+# View the colour palette
+#show_col(magma.continuous)
+
+# Set the Nitrogen palette
+magma.nitrogen <- magma.continuous[c(3, 10)]
+
+
+## Urbanization Metrics---------------------------------------------------#
+## Set the colour palette
+mako.continuous <- mako(n = 12)
+
+# View the colour palette
+#show_col(mako.continuous)
+
+# Set the urbanization metric palettes
+mako.urbanization <- mako.continuous[c(4, 7, 10)]
+
+
+## Inoculant vs. Control--------------------------------------------------#
+## Set the colour palette
+rocket.continuous <- rocket(n = 12)
+
+# View the colour palette
+#show_col(rocket.continuous)
+
+# Set the inoculant palette (plasma + rocket)
+inoculant.type.palette <- c(
+	"#FCD225FF", "#C03A83FF", "#0D0887FF", "#03051AFF", "#ED513EFF"
+)
+```
+
+
+
+
+
+
+
+\newpage
+# Site Map
+
+```{r Setp the Site Map Figure, echo = TRUE, eval = FALSE}
+## Prepare data for spatial plotting
+# Specify columns with coordinates
+coordinates(site.information.data) <- ~ Longitude + Latitude
+
+# Set CRS
+proj4string(site.information.data) <- CRS("+init=epsg:4326")
+
+# Convert df to sf
+site.information.sf <- site.information.data %>%
+  st_as_sf(coords = c("Longitude", "Latitude")) %>%
+  st_transform(crs = 4326)
+
+## Set the boundary box
+boundary.box <- c(-80.0460556, 43.3268801, -79.2660263, 43.7569154)
+
+## Set the base map
+base.map <- ggmap(
+  get_map(location = boundary.box, maptype = "terrain", source = "stamen")
+)
+
+## Assemble the site map
+site.map <- base.map +
+  geom_sf(
+    data = site.information.sf,
+    mapping = aes(color = Community_Type),
+    alpha = 0.85,
+    size = 4,
+    inherit.aes = FALSE
+  ) +
+  scale_color_manual(values = plasma.site.map) +
+  scale_shape_manual(values = c(19)) +
+  labs(x = "Longitude", y = "Latitude") +
+  scalebar(
+    x.min = -80.0460556, x.max = -79.2660263,
+    y.min = 43.3268801, y.max = 43.7569154,
+    dist = 10, dist_unit = "km",
+    st.bottom = FALSE, st.color = "black",
+    transform = TRUE, model = "WGS84",
+    st.dist = 0.05
+  ) +
+  theme(
+    legend.position = c(0.15, 0.75),
+    legend.background = element_rect(fill = "white", colour = "black"),
+    legend.box.margin = margin(6, 6, 6, 6),
+    legend.text = element_text(size = 12),
+    legend.title = element_text(size = 14),
+    axis.text = element_text(size = 12),
+    axis.title = element_text(size = 14)
+  )
+
+## Add north star symbol
+site.map.final <- north2(ggp = site.map, x = 0.85, y = 0.225, scale = 0.1, symbol = 1)
+
+## Export the figure
+dev.copy2pdf(
+  file = "figures/fig_1-site_map-base.pdf",
+  width = 8,
+  height = 6
+)
+```
+
+
+
+
+
+
+
+\newpage
+# Microbiome $\times$ Nitrogen
+
+\vspace{10pt}
+
+## Data Management
+
+```{r Microbiome x Nitrogen Data Management, echo = TRUE}
+## Aggregate data by population means for the reaction norm plots
+# Aboveground biomass
+aboveground.biomass.population.mean.data <- aggregate(
+  Aboveground_Biomass ~ Population + Microbiome + Nitrogen,
+  data = biomass.data,
+  FUN = mean
+)
+
+# Belowground biomass
+belowground.biomass.population.mean.data <- aggregate(
+  Belowground_Biomass ~ Population + Microbiome + Nitrogen,
+  data = biomass.data,
+  FUN = mean
+)
+
+# Nodule density
+nodule.density.population.mean.data <- aggregate(
+  Nodule_Density ~ Population + Microbiome + Nitrogen,
+  data = nodule.data,
+  FUN = mean
+)
+
+# Fixing nodule density
+fixing.nodule.density.population.mean.data <- aggregate(
+  Fixing_Nodule_Density ~ Population + Microbiome + Nitrogen,
+  data = nodule.data,
+  FUN = mean
+)
+```
+
+
+
+
+
+\newpage
+## Microbiome $\times$ Nitrogen Treatment Means
+
+```{r Set the Base M x N Treatment Means, echo = TRUE}
+## Aboveground Biomass
+aboveground.biomass.MN.treatment.means.base.plot <- ggerrorplot(
+  data = aboveground.biomass.population.mean.data,
+  x = "Microbiome",
+  y = "Aboveground_Biomass",
+  desc_stat = "mean_se",
+  size = 2,
+  xlab = "Microbiome Treatment",
+  ylab = "Aboveground Biomass (g)",
+  title = "(A)",
+  color = "Microbiome",
+  palette = plasma.microbiome,
+  facet.by = "Nitrogen",
+  ggtheme = theme_pubr()
+) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20") +
+  rremove("x.text") +
+  rremove("xlab")
+
+## Belowground Biomass
+belowground.biomass.MN.treatment.means.base.plot <- ggerrorplot(
+  data = belowground.biomass.population.mean.data,
+  x = "Microbiome",
+  y = "Belowground_Biomass",
+  desc_stat = "mean_se",
+  size = 2,
+  xlab = "Microbiome Treatment",
+  ylab = "Belowground Biomass (g)",
+  title = "(C)",
+  color = "Microbiome",
+  palette = plasma.microbiome,
+  facet.by = "Nitrogen",
+  ggtheme = theme_pubr()
+) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20") +
+  rremove("x.text") +
+  rremove("xlab")
+
+## Nodule Density
+nodule.density.MN.treatment.means.base.plot <- ggerrorplot(
+  data = nodule.density.population.mean.data,
+  x = "Microbiome",
+  y = "Nodule_Density",
+  desc_stat = "mean_se",
+  size = 2,
+  xlab = "Microbiome Treatment",
+  ylab = "Nodule Density \n (no./cm)",
+  title = "(E)",
+  color = "Microbiome",
+  palette = plasma.microbiome,
+  facet.by = "Nitrogen",
+  ggtheme = theme_pubr()
+) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20") +
+  rremove("x.text") +
+  rremove("xlab")
+
+## Fixing Nodule Density
+fixing.nodule.density.MN.treatment.means.base.plot <- ggerrorplot(
+  data = fixing.nodule.density.population.mean.data,
+  x = "Microbiome",
+  y = "Fixing_Nodule_Density",
+  desc_stat = "mean_se",
+  size = 2,
+  xlab = "Microbiome Treatment",
+  ylab = "Fixing Nodule Density \n (no./cm)",
+  title = "(G)",
+  color = "Microbiome",
+  palette = plasma.microbiome,
+  facet.by = "Nitrogen",
+  ggtheme = theme_pubr()
+) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20")
+```
+
+
+
+
+
+\newpage
+## Microbiome $\times$ Nitrogen Reaction Norms
+
+```{r Set the Base M x N Reaction Norms, echo = TRUE}
+## Aboveground Biomass
+aboveground.biomass.MN.reaction.norm.base.plot <- ggscatter(
+  data = aboveground.biomass.population.mean.data,
+  x = "Microbiome",
+  y = "Aboveground_Biomass",
+  shape = 19,
+  size = 3.5,
+  xlab = "Microbiome Treatment",
+  ylab = "Aboveground Biomass (g)",
+  title = "(B)",
+  color = "Microbiome",
+  palette = plasma.microbiome,
+  facet.by = "Nitrogen",
+  ggtheme = theme_pubr()
+) +
+  stat_summary(
+    aes(group = Population),
+    fun = mean,
+    geom = "path", position = "identity", size = 0.75,
+    color = "gray65"
+  ) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20") +
+  rremove("x.text") +
+  rremove("xlab") +
+  rremove("ylab")
+
+## Belowground Biomass
+belowground.biomass.MN.reaction.norm.base.plot <- ggscatter(
+  data = belowground.biomass.population.mean.data,
+  x = "Microbiome",
+  y = "Belowground_Biomass",
+  shape = 19,
+  size = 3.5,
+  xlab = "Microbiome Treatment",
+  ylab = "Belowground Biomass (g)",
+  title = "(D)",
+  color = "Microbiome",
+  palette = plasma.microbiome,
+  facet.by = "Nitrogen",
+  ggtheme = theme_pubr()
+) +
+  stat_summary(
+    aes(group = Population),
+    fun = mean,
+    geom = "path", position = "identity", size = 0.75,
+    color = "gray65"
+  ) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20") +
+  rremove("x.text") +
+  rremove("xlab") +
+  rremove("ylab")
+
+## Nodule Density
+nodule.density.MN.reaction.norm.base.plot <- ggscatter(
+  data = nodule.density.population.mean.data,
+  x = "Microbiome",
+  y = "Nodule_Density",
+  shape = 19,
+  size = 3.5,
+  xlab = "Microbiome Treatment",
+  ylab = "Nodule Density \n (no./cm)",
+  title = "(F)",
+  color = "Microbiome",
+  palette = plasma.microbiome,
+  facet.by = "Nitrogen",
+  ggtheme = theme_pubr()
+) +
+  stat_summary(
+    aes(group = Population),
+    fun = mean,
+    geom = "path", position = "identity", size = 0.75,
+    color = "gray65"
+  ) +
+  coord_cartesian(ylim = c(0, 1.75)) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20") +
+  rremove("x.text") +
+  rremove("xlab") +
+  rremove("ylab")
+
+## Fixing Nodule Density
+fixing.nodule.density.MN.reaction.norm.base.plot <- ggscatter(
+  data = fixing.nodule.density.population.mean.data,
+  x = "Microbiome",
+  y = "Fixing_Nodule_Density",
+  shape = 19,
+  size = 3.5,
+  xlab = "Microbiome Treatment",
+  ylab = "Fixing Nodule Density \n (no./cm)",
+  title = "(H)",
+  color = "Microbiome",
+  palette = plasma.microbiome,
+  facet.by = "Nitrogen",
+  ggtheme = theme_pubr()
+) +
+  stat_summary(
+    aes(group = Population),
+    fun = mean,
+    geom = "path", position = "identity", size = 0.75,
+    color = "gray65"
+  ) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20") +
+  rremove("ylab")
+```
+
+\vspace{10pt}
+
+```{r Arrange the M x N Reaction Norm Figure, echo = TRUE}
+## Arrange the figure
+MN.treatment.means.reaction.norms.figure <- ggarrange(
+  aboveground.biomass.MN.treatment.means.base.plot, aboveground.biomass.MN.reaction.norm.base.plot,
+  belowground.biomass.MN.treatment.means.base.plot, belowground.biomass.MN.reaction.norm.base.plot,
+  nodule.density.MN.treatment.means.base.plot, nodule.density.MN.reaction.norm.base.plot,
+  fixing.nodule.density.MN.treatment.means.base.plot, fixing.nodule.density.MN.reaction.norm.base.plot,
+  nrow = 4,
+  ncol = 2,
+  align = "hv",
+  legend = "top",
+  common.legend = TRUE
+)
+```
+
+\vspace{10pt}
+
+```{r Save the M x N Reaction Norm Figure, echo = TRUE}
+## Save the figure
+ggsave(
+	"fig_2-M_x_N_treatment_means_reaction_norms-base.pdf",
+  plot = MN.treatment.means.reaction.norms.figure,
+  device = "pdf",
+  path = "figures/",
+  width = 15,
+  height = 12.5,
+  units = "in",
+  dpi = 600
+)
+```
+
+
+
+
+
+
+
+\newpage
+# Local Adaptation Correlations
+
+\vspace{10pt}
+
+## Data Management
+
+```{r Load Local Adaptation Index Correlation Data, echo = TRUE}
+## Read in data
+global.local.adaptation.correlation.data <- read_rds(
+  file = "data/global_local_adaptation_correlation_data.rds"
+)
+rural.local.adaptation.correlation.data <- read_rds(
+  file = "data/rural_local_adaptation_correlation_data.rds"
+)
+urban.local.adaptation.correlation.data <- read_rds(
+  file = "data/urban_local_adaptation_correlation_data.rds"
+)
+```
+
+
+
+
+
+\newpage
+## Local - Nonlocal~Global~ Local Adaptation Scatterplots
+
+```{r Set the Local-Nonlocal_Global Scatterplots, echo = TRUE, results = "hide"}
+## Global local adaptation index scatterplots
+# AG biomass ~ BG biomass
+global.local.adaptation.panel.A <- ggscatter(
+  data = global.local.adaptation.correlation.data,
+  x = "BG_Biomass_LA_Global",
+  y = "AG_Biomass_LA_Global",
+  size = 2,
+  xlab = "Belowground Biomass \n LA Index",
+  ylab = "Aboveground Biomass \n LA Index",
+  color = "Nitrogen",
+  palette = magma.nitrogen,
+  add = "reg.line",
+  conf.int = TRUE,
+  ggtheme = theme_pubr(),
+  title = "(A)"
+) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20")
+
+# Nodule density ~ fixing nodule density
+global.local.adaptation.panel.B <- ggscatter(
+  data = global.local.adaptation.correlation.data,
+  x = "Fix_Nod_Density_LA_Global",
+  y = "Nod_Density_LA_Global",
+  size = 2,
+  xlab = "Fixing Nodule Density \n LA Index",
+  ylab = "Nodule Density \n LA Index",
+  color = "Nitrogen",
+  palette = magma.nitrogen,
+  add = "reg.line",
+  conf.int = TRUE,
+  ggtheme = theme_pubr(),
+  title = "(B)"
+) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20")
+
+# AG biomass ~ nodule density
+global.local.adaptation.panel.C <- ggscatter(
+  data = global.local.adaptation.correlation.data,
+  x = "Nod_Density_LA_Global",
+  y = "AG_Biomass_LA_Global",
+  size = 2,
+  xlab = "Nodule Density \n LA Index",
+  ylab = "Aboveground Biomass \n LA Index",
+  color = "Nitrogen",
+  palette = magma.nitrogen,
+  add = "reg.line",
+  conf.int = TRUE,
+  ggtheme = theme_pubr(),
+  title = "(C)"
+) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20")
+
+# BG biomass ~ nodule density
+global.local.adaptation.panel.D <- ggscatter(
+  data = global.local.adaptation.correlation.data,
+  x = "Nod_Density_LA_Global",
+  y = "BG_Biomass_LA_Global",
+  size = 2,
+  xlab = "Nodule Density \n LA Index",
+  ylab = "Belwogrund Biomass \n LA Index",
+  color = "Nitrogen",
+  palette = magma.nitrogen,
+  add = "reg.line",
+  conf.int = TRUE,
+  ggtheme = theme_pubr(),
+  title = "(D)"
+) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20")
+
+# AG biomass ~ fixing nodule density
+global.local.adaptation.panel.E <- ggscatter(
+  data = global.local.adaptation.correlation.data,
+  x = "Fix_Nod_Density_LA_Global",
+  y = "AG_Biomass_LA_Global",
+  size = 2,
+  xlab = "Fixing Nodule Density \n LA Index",
+  ylab = "Aboveground Biomass \n LA Index",
+  color = "Nitrogen",
+  palette = magma.nitrogen,
+  add = "reg.line",
+  conf.int = TRUE,
+  ggtheme = theme_pubr(),
+  title = "(E)"
+) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20")
+
+# BG biomass ~ fixing nodule density
+global.local.adaptation.panel.F <- ggscatter(
+  data = global.local.adaptation.correlation.data,
+  x = "Fix_Nod_Density_LA_Global",
+  y = "BG_Biomass_LA_Global",
+  size = 2,
+  xlab = "Fixing Nodule Density \n LA Index",
+  ylab = "Belowground Biomass \n LA Index",
+  color = "Nitrogen",
+  palette = magma.nitrogen,
+  add = "reg.line",
+  conf.int = TRUE,
+  ggtheme = theme_pubr(),
+  title = "(F)"
+) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20")
+```
+
+\vspace{10pt}
+
+```{r Arrange the Figure: Local-Nonlocal_Global Scatterplots, echo = TRUE}
+## Arrange the local-nonlocal_global scatterplots figure
+global.local.adaptation.figure <- ggarrange(
+  global.local.adaptation.panel.A, global.local.adaptation.panel.B,
+  global.local.adaptation.panel.C, global.local.adaptation.panel.D,
+  global.local.adaptation.panel.E, global.local.adaptation.panel.F,
+  nrow = 3,
+  ncol = 2,
+  align = "v",
+  legend = "top",
+  common.legend = TRUE
+)
+```
+
+\vspace{10pt}
+
+```{r Save the Local-Nonlocal_Global Pairs Figure, echo = TRUE, results = "hide"}
+## Save the figure
+ggsave(
+	"fig_3-local_adaptation_global-base.pdf",
+  plot = global.local.adaptation.figure,
+  device = "pdf",
+  path = "figures/",
+  width = 12.5,
+  height = 12.5,
+  units = "in",
+  dpi = 600
+)
+```
+
+
+
+
+
+\newpage
+## Local - Nonlocal~Rural~ Local Adaptation Scatterplots
+
+```{r Set the Local-Nonlocal_Rural Scatterplots, echo = TRUE, results = "hide"}
+## Rural local adaptation index scatterplots
+# AG biomass ~ BG biomass
+rural.local.adaptation.panel.A <- ggscatter(
+  data = rural.local.adaptation.correlation.data,
+  x = "BG_Biomass_LA_Rural",
+  y = "AG_Biomass_LA_Rural",
+  size = 2,
+  xlab = "Belowground Biomass \n LA Index",
+  ylab = "Aboveground Biomass \n LA Index",
+  color = "Nitrogen",
+  palette = magma.nitrogen,
+  add = "reg.line",
+  conf.int = TRUE,
+  ggtheme = theme_pubr(),
+  title = "(A)"
+) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20")
+
+# Nodule density ~ fixing nodule density
+rural.local.adaptation.panel.B <- ggscatter(
+  data = rural.local.adaptation.correlation.data,
+  x = "Fix_Nod_Density_LA_Rural",
+  y = "Nod_Density_LA_Rural",
+  size = 2,
+  xlab = "Fixing Nodule Density \n LA Index",
+  ylab = "Nodule Density \n LA Index",
+  color = "Nitrogen",
+  palette = magma.nitrogen,
+  add = "reg.line",
+  conf.int = TRUE,
+  ggtheme = theme_pubr(),
+  title = "(B)"
+) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20")
+
+# AG biomass ~ nodule density
+rural.local.adaptation.panel.C <- ggscatter(
+  data = rural.local.adaptation.correlation.data,
+  x = "Nod_Density_LA_Rural",
+  y = "AG_Biomass_LA_Rural",
+  size = 2,
+  xlab = "Nodule Density \n LA Index",
+  ylab = "Aboveground Biomass \n LA Index",
+  color = "Nitrogen",
+  palette = magma.nitrogen,
+  add = "reg.line",
+  conf.int = TRUE,
+  ggtheme = theme_pubr(),
+  title = "(C)"
+) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20")
+
+# BG biomass ~ nodule density
+rural.local.adaptation.panel.D <- ggscatter(
+  data = rural.local.adaptation.correlation.data,
+  x = "Nod_Density_LA_Rural",
+  y = "BG_Biomass_LA_Rural",
+  size = 2,
+  xlab = "Nodule Density \n LA Index",
+  ylab = "Belwogrund Biomass \n LA Index",
+  color = "Nitrogen",
+  palette = magma.nitrogen,
+  add = "reg.line",
+  conf.int = TRUE,
+  ggtheme = theme_pubr(),
+  title = "(D)"
+) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20")
+
+# AG biomass ~ fixing nodule density
+rural.local.adaptation.panel.E <- ggscatter(
+  data = rural.local.adaptation.correlation.data,
+  x = "Fix_Nod_Density_LA_Rural",
+  y = "AG_Biomass_LA_Rural",
+  size = 2,
+  xlab = "Fixing Nodule Density \n LA Index",
+  ylab = "Aboveground Biomass \n LA Index",
+  color = "Nitrogen",
+  palette = magma.nitrogen,
+  add = "reg.line",
+  conf.int = TRUE,
+  ggtheme = theme_pubr(),
+  title = "(E)"
+) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20")
+
+# BG biomass ~ fixing nodule density
+rural.local.adaptation.panel.F <- ggscatter(
+  data = rural.local.adaptation.correlation.data,
+  x = "Fix_Nod_Density_LA_Rural",
+  y = "BG_Biomass_LA_Rural",
+  size = 2,
+  xlab = "Fixing Nodule Density \n LA Index",
+  ylab = "Belowground Biomass \n LA Index",
+  color = "Nitrogen",
+  palette = magma.nitrogen,
+  add = "reg.line",
+  conf.int = TRUE,
+  ggtheme = theme_pubr(),
+  title = "(F)"
+) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20")
+```
+
+\vspace{10pt}
+
+```{r Arrange the Figure: Local-Nonlocal_Rural Scatterplots, echo = TRUE}
+## Arrange the local-nonlocal_rural scatterplots figure
+rural.local.adaptation.figure <- ggarrange(
+  rural.local.adaptation.panel.A, rural.local.adaptation.panel.B,
+  rural.local.adaptation.panel.C, rural.local.adaptation.panel.D,
+  rural.local.adaptation.panel.E, rural.local.adaptation.panel.F,
+  nrow = 3,
+  ncol = 2,
+  align = "v",
+  legend = "top",
+  common.legend = TRUE
+)
+```
+
+
+\vspace{10pt}
+
+```{r Save the Local-Nonlocal_Rural Pairs Figure, echo = TRUE, results = "hide"}
+## Save the figure
+ggsave(
+	"fig_S2-local_adaptation_rural-base.pdf",
+  plot = rural.local.adaptation.figure,
+  device = "pdf",
+  path = "figures/",
+  width = 12.5,
+  height = 12.5,
+  units = "in",
+  dpi = 600
+)
+```
+
+
+
+
+
+\newpage
+## Local - Nonlocal~Urban~ Local Adaptation Scatterplots
+
+```{r Set the Local-Nonlocal_Urban Scatterplots, echo = TRUE, results = "hide"}
+## Urban local adaptation index scatterplots
+# AG biomass ~ BG biomass
+urban.local.adaptation.panel.A <- ggscatter(
+  data = urban.local.adaptation.correlation.data,
+  x = "BG_Biomass_LA_Urban",
+  y = "AG_Biomass_LA_Urban",
+  size = 2,
+  xlab = "Belowground Biomass \n LA Index",
+  ylab = "Aboveground Biomass \n LA Index",
+  color = "Nitrogen",
+  palette = magma.nitrogen,
+  add = "reg.line",
+  conf.int = TRUE,
+  ggtheme = theme_pubr(),
+  title = "(A)"
+) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20")
+
+# Nodule density ~ fixing nodule density
+urban.local.adaptation.panel.B <- ggscatter(
+  data = urban.local.adaptation.correlation.data,
+  x = "Fix_Nod_Density_LA_Urban",
+  y = "Nod_Density_LA_Urban",
+  size = 2,
+  xlab = "Fixing Nodule Density \n LA Index",
+  ylab = "Nodule Density \n LA Index",
+  color = "Nitrogen",
+  palette = magma.nitrogen,
+  add = "reg.line",
+  conf.int = TRUE,
+  ggtheme = theme_pubr(),
+  title = "(B)"
+) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20")
+
+# AG biomass ~ nodule density
+urban.local.adaptation.panel.C <- ggscatter(
+  data = urban.local.adaptation.correlation.data,
+  x = "Nod_Density_LA_Urban",
+  y = "AG_Biomass_LA_Urban",
+  size = 2,
+  xlab = "Nodule Density \n LA Index",
+  ylab = "Aboveground Biomass \n LA Index",
+  color = "Nitrogen",
+  palette = magma.nitrogen,
+  add = "reg.line",
+  conf.int = TRUE,
+  ggtheme = theme_pubr(),
+  title = "(C)"
+) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20")
+
+# BG biomass ~ nodule density
+urban.local.adaptation.panel.D <- ggscatter(
+  data = urban.local.adaptation.correlation.data,
+  x = "Nod_Density_LA_Urban",
+  y = "BG_Biomass_LA_Urban",
+  size = 2,
+  xlab = "Nodule Density \n LA Index",
+  ylab = "Belwogrund Biomass \n LA Index",
+  color = "Nitrogen",
+  palette = magma.nitrogen,
+  add = "reg.line",
+  conf.int = TRUE,
+  ggtheme = theme_pubr(),
+  title = "(D)"
+) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20")
+
+# AG biomass ~ fixing nodule density
+urban.local.adaptation.panel.E <- ggscatter(
+  data = urban.local.adaptation.correlation.data,
+  x = "Fix_Nod_Density_LA_Urban",
+  y = "AG_Biomass_LA_Urban",
+  size = 2,
+  xlab = "Fixing Nodule Density \n LA Index",
+  ylab = "Aboveground Biomass \n LA Index",
+  color = "Nitrogen",
+  palette = magma.nitrogen,
+  add = "reg.line",
+  conf.int = TRUE,
+  ggtheme = theme_pubr(),
+  title = "(E)"
+) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20")
+
+# BG biomass ~ fixing nodule density
+urban.local.adaptation.panel.F <- ggscatter(
+  data = urban.local.adaptation.correlation.data,
+  x = "Fix_Nod_Density_LA_Urban",
+  y = "BG_Biomass_LA_Urban",
+  size = 2,
+  xlab = "Fixing Nodule Density \n LA Index",
+  ylab = "Belowground Biomass \n LA Index",
+  color = "Nitrogen",
+  palette = magma.nitrogen,
+  add = "reg.line",
+  conf.int = TRUE,
+  ggtheme = theme_pubr(),
+  title = "(F)"
+) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20")
+```
+
+\vspace{10pt}
+
+```{r Arrange the Figure: Local-Nonlocal_Urban Scatterplots, echo = TRUE}
+## Arrange the local-nonlocal_urban scatterplots figure
+urban.local.adaptation.figure <- ggarrange(
+  urban.local.adaptation.panel.A, urban.local.adaptation.panel.B,
+  urban.local.adaptation.panel.C, urban.local.adaptation.panel.D,
+  urban.local.adaptation.panel.E, urban.local.adaptation.panel.F,
+  nrow = 3,
+  ncol = 2,
+  align = "v",
+  legend = "top",
+  common.legend = TRUE
+)
+```
+
+\vspace{10pt}
+
+```{r Save the Local-Nonlocal_Urban Pairs Figure, echo = TRUE, results = "hide"}
+## Save the figure
+ggsave(
+	"fig_S3-local_adaptation_urban-base.pdf",
+  plot = urban.local.adaptation.figure,
+  device = "pdf",
+  path = "figures/",
+  width = 12.5,
+  height = 12.5,
+  units = "in",
+  dpi = 600
+)
+```
+
+
+
+
+
+
+
+\newpage
+# Local Adaptation by Urbanization Regressions
+
+\vspace{10pt}
+
+## Data Management
+
+```{r Local Adaptation by Urbanization Data Management, echo = TRUE}
+## Load local adaptation index by urbanization data
+load("data_analysis/6-local_adaptation_by_urbanization/local_adaptation_by_urbanization_data.RData")
+
+## Global index
+# Combine the data
+local.adaptation.by.urbanization.global.data.wide <- aboveground.biomass.LA.global.combined.data %>%
+  select(Population, Nitrogen, Distance_Scaled:Mean_ISC_Scaled, AG_Biomass_LA_Global) %>%
+  left_join(
+    belowground.biomass.LA.global.combined.data %>% select(Population, Nitrogen, BG_Biomass_LA_Global),
+    by = c("Population", "Nitrogen")
+  ) %>%
+  left_join(
+    nodule.density.LA.global.combined.data %>% select(Population, Nitrogen, Nod_Density_LA_Global),
+    by = c("Population", "Nitrogen")
+  ) %>%
+  left_join(
+    fixing.nodule.density.LA.global.combined.data %>% select(Population, Nitrogen, Fix_Nod_Density_LA_Global),
+    by = c("Population", "Nitrogen")
+  )
+# Pivot the data into long format
+local.adaptation.by.urbanization.global.data.long <- local.adaptation.by.urbanization.global.data.wide %>%
+	pivot_longer(
+		cols = Distance_Scaled:Mean_ISC_Scaled,
+		names_to = "Urbanization_Metric",
+		values_to = "Standardized_Estimate"
+		)
+
+
+## Rural index
+# Combine the data
+local.adaptation.by.urbanization.rural.data.wide <- aboveground.biomass.LA.rural.combined.data %>%
+  select(Population, Nitrogen, Distance_Scaled:Mean_ISC_Scaled, AG_Biomass_LA_Rural) %>%
+  left_join(
+    belowground.biomass.LA.rural.combined.data %>% select(Population, Nitrogen, BG_Biomass_LA_Rural),
+    by = c("Population", "Nitrogen")
+  ) %>%
+  left_join(
+    nodule.density.LA.rural.combined.data %>% select(Population, Nitrogen, Nod_Density_LA_Rural),
+    by = c("Population", "Nitrogen")
+  ) %>%
+  left_join(
+    fixing.nodule.density.LA.rural.combined.data %>% select(Population, Nitrogen, Fix_Nod_Density_LA_Rural),
+    by = c("Population", "Nitrogen")
+  )
+# Pivot the data into long format
+local.adaptation.by.urbanization.rural.data.long <- local.adaptation.by.urbanization.rural.data.wide %>%
+	pivot_longer(
+		cols = Distance_Scaled:Mean_ISC_Scaled,
+		names_to = "Urbanization_Metric",
+		values_to = "Standardized_Estimate"
+		)
+
+
+## Urban index
+# Combine the data
+local.adaptation.by.urbanization.urban.data.wide <- aboveground.biomass.LA.urban.combined.data %>%
+  select(Population, Nitrogen, Distance_Scaled:Mean_ISC_Scaled, AG_Biomass_LA_Urban) %>%
+  left_join(
+    belowground.biomass.LA.urban.combined.data %>% select(Population, Nitrogen, BG_Biomass_LA_Urban),
+    by = c("Population", "Nitrogen")
+  ) %>%
+  left_join(
+    nodule.density.LA.urban.combined.data %>% select(Population, Nitrogen, Nod_Density_LA_Urban),
+    by = c("Population", "Nitrogen")
+  ) %>%
+  left_join(
+    fixing.nodule.density.LA.urban.combined.data %>% select(Population, Nitrogen, Fix_Nod_Density_LA_Urban),
+    by = c("Population", "Nitrogen")
+  )
+# Pivot the data into long format
+local.adaptation.by.urbanization.urban.data.long <- local.adaptation.by.urbanization.urban.data.wide %>%
+	pivot_longer(
+		cols = Distance_Scaled:Mean_ISC_Scaled,
+		names_to = "Urbanization_Metric",
+		values_to = "Standardized_Estimate"
+		)
+```
+
+
+
+
+
+\newpage
+## Local - Nonlocal~Global~ Local Adaptation Scatterplots (Main Text)
+
+```{r Set the Local-Nonlocal_Global by Distance Scatterplots, echo = TRUE, results = "hide"}
+## Aboveground biomass LA global by distance plot
+aboveground.biomass.LA.global.by.distance.plot <- ggscatter(
+  data = local.adaptation.by.urbanization.global.data.wide,
+  x = "Distance_Scaled",
+  y = "AG_Biomass_LA_Global",
+  size = 2,
+  xlab = "Standardized Distance",
+  ylab = "Aboveground Biomass \n LA Index_Global",
+  color = "#403A75FF",
+  fill = "#403A75FF",
+  add = "reg.line",
+  conf.int = TRUE,
+  ggtheme = theme_pubr(),
+  title = "(A)"
+) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20") +
+	rremove("x.text") +
+	rremove("xlab")
+
+## Belowground biomass LA global by distance plot
+belowground.biomass.LA.global.by.distance.plot <- ggscatter(
+  data = local.adaptation.by.urbanization.global.data.wide,
+  x = "Distance_Scaled",
+  y = "BG_Biomass_LA_Global",
+  size = 2,
+  xlab = "Standardized Distance",
+  ylab = "Belowground Biomass \n LA Index_Global",
+  color = "#403A75FF",
+  fill = "#403A75FF",
+  add = "reg.line",
+  conf.int = TRUE,
+  ggtheme = theme_pubr(),
+  title = "(B)"
+) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20") +
+	rremove("x.text") +
+	rremove("xlab")
+
+## Nodule density LA global by distance plot
+nodule.density.LA.global.by.distance.plot <- ggscatter(
+  data = local.adaptation.by.urbanization.global.data.wide,
+  x = "Distance_Scaled",
+  y = "Nod_Density_LA_Global",
+  size = 2,
+  xlab = "Standardized Distance",
+  ylab = "Nodule Density \n LA Index_Global",
+  color = "#403A75FF",
+  fill = "#403A75FF",
+  add = "reg.line",
+  conf.int = TRUE,
+  ggtheme = theme_pubr(),
+  title = "(C)"
+) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20") +
+	rremove("x.text") +
+	rremove("xlab")
+
+## Fixing nodule density LA global by distance plot
+fixing.nodule.density.LA.global.by.distance.plot <- ggscatter(
+  data = local.adaptation.by.urbanization.global.data.wide,
+  x = "Distance_Scaled",
+  y = "Fix_Nod_Density_LA_Global",
+  size = 2,
+  xlab = "Standardized Distance",
+  ylab = "Fixing Nodule Density \n LA Index_Global",
+  color = "#403A75FF",
+  fill = "#403A75FF",
+  add = "reg.line",
+  conf.int = TRUE,
+  ggtheme = theme_pubr(),
+  title = "(D)"
+) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20")
+```
+
+\vspace{10pt}
+
+```{r Arrange the Local-Nonlocal_Global by Distance Figure, echo = TRUE, results = "hide"}
+LA.index.global.by.distance.figure <- ggarrange(
+  aboveground.biomass.LA.global.by.distance.plot,
+  belowground.biomass.LA.global.by.distance.plot,
+  nodule.density.LA.global.by.distance.plot,
+  fixing.nodule.density.LA.global.by.distance.plot,
+  nrow = 4,
+  ncol = 1,
+  align = "hv",
+  legend = "top",
+  common.legend = TRUE
+)
+```
+
+\vspace{10pt}
+
+```{r Save the Local-Nonlocal_Global by Distance Figure, echo = TRUE, results = "hide"}
+## Save the figure
+ggsave(
+	"fig_4-local_adaptation_global_distance-base.pdf",
+  plot = LA.index.global.by.distance.figure,
+  device = "pdf",
+  path = "figures/",
+  width = 5,
+  height = 10,
+  units = "in",
+  dpi = 600
+)
+```
+
+
+
+
+\newpage
+## Local - Nonlocal~Global~ Local Adaptation Scatterplots (Supplement)
+
+```{r Set the Local-Nonlocal_Global by Urbanization Scatterplots, echo = TRUE, results = "hide"}
+## Aboveground biomass LA global by urbanization plot
+aboveground.biomass.LA.global.by.urbanization.plot <- ggscatter(
+  data = local.adaptation.by.urbanization.global.data.long,
+  x = "Standardized_Estimate",
+  y = "AG_Biomass_LA_Global",
+  size = 2,
+  xlab = "Standardized Estimate",
+  ylab = "Aboveground Biomass \n LA Index_Global",
+  color = "Urbanization_Metric",
+  palette = mako.urbanization,
+  add = "reg.line",
+  conf.int = TRUE,
+  ggtheme = theme_pubr(),
+  title = "(A)",
+  facet.by = "Urbanization_Metric"
+) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20") +
+	rremove("x.text") +
+	rremove("xlab")
+
+## Belowground biomass LA global by urbanization plot
+belowground.biomass.LA.global.by.urbanization.plot <- ggscatter(
+  data = local.adaptation.by.urbanization.global.data.long,
+  x = "Standardized_Estimate",
+  y = "BG_Biomass_LA_Global",
+  size = 2,
+  xlab = "Standardized Estimate",
+  ylab = "Belowground Biomass \n LA Index_Global",
+  color = "Urbanization_Metric",
+  palette = mako.urbanization,
+  add = "reg.line",
+  conf.int = TRUE,
+  ggtheme = theme_pubr(),
+  title = "(B)",
+  facet.by = "Urbanization_Metric"
+) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20") +
+	rremove("x.text") +
+	rremove("xlab")
+
+## Nodule density LA global by urbanization plot
+nodule.density.LA.global.by.urbanization.plot <- ggscatter(
+  data = local.adaptation.by.urbanization.global.data.long,
+  x = "Standardized_Estimate",
+  y = "Nod_Density_LA_Global",
+  size = 2,
+  xlab = "Standardized Estimate",
+  ylab = "Nodule Density \n LA Index_Global",
+  color = "Urbanization_Metric",
+  palette = mako.urbanization,
+  add = "reg.line",
+  conf.int = TRUE,
+  ggtheme = theme_pubr(),
+  title = "(C)",
+  facet.by = "Urbanization_Metric"
+) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20") +
+	rremove("x.text") +
+	rremove("xlab")
+
+## Fixing nodule density LA global by urbanization plot
+fixing.nodule.density.LA.global.by.urbanization.plot <- ggscatter(
+  data = local.adaptation.by.urbanization.global.data.long,
+  x = "Standardized_Estimate",
+  y = "Fix_Nod_Density_LA_Global",
+  size = 2,
+  xlab = "Standardized Estimate",
+  ylab = "Fixing Nodule Density \n LA Index_Global",
+  color = "Urbanization_Metric",
+  palette = mako.urbanization,
+  add = "reg.line",
+  conf.int = TRUE,
+  ggtheme = theme_pubr(),
+  title = "(D)",
+  facet.by = "Urbanization_Metric"
+) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20")
+```
+
+\vspace{10pt}
+
+```{r Arrange the Local-Nonlocal_Global by Urbanization Figure, echo = TRUE, results = "hide"}
+LA.index.global.by.urbanization.figure <- ggarrange(
+  aboveground.biomass.LA.global.by.urbanization.plot,
+  belowground.biomass.LA.global.by.urbanization.plot,
+  nodule.density.LA.global.by.urbanization.plot,
+  fixing.nodule.density.LA.global.by.urbanization.plot,
+  nrow = 4,
+  ncol = 1,
+  align = "hv",
+  legend = "top",
+  common.legend = TRUE
+)
+```
+
+\vspace{10pt}
+
+```{r Save the Local-Nonlocal_Global by Urbanization Figure, echo = TRUE, results = "hide"}
+## Save the figure
+ggsave(
+	"fig_S4-local_adaptation_global_urbanization-base.pdf",
+  plot = LA.index.global.by.urbanization.figure,
+  device = "pdf",
+  path = "figures/",
+  width = 12.5,
+  height = 12.5,
+  units = "in",
+  dpi = 600
+)
+```
+
+
+
+
+
+\newpage
+## Local - Nonlocal~Rural~ Local Adaptation Scatterplots
+
+```{r Set the Local-Nonlocal_Rural by Urbanization Scatterplots, echo = TRUE, results = "hide"}
+## Aboveground biomass LA rural by urbanization plot
+aboveground.biomass.LA.rural.by.urbanization.plot <- ggscatter(
+  data = local.adaptation.by.urbanization.rural.data.long,
+  x = "Standardized_Estimate",
+  y = "AG_Biomass_LA_Rural",
+  size = 2,
+  xlab = "Standardized Estimate",
+  ylab = "Aboveground Biomass \n LA Index_Rural",
+  color = "Urbanization_Metric",
+  palette = mako.urbanization,
+  add = "reg.line",
+  conf.int = TRUE,
+  ggtheme = theme_pubr(),
+  title = "(A)",
+  facet.by = "Urbanization_Metric"
+) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20") +
+	rremove("x.text") +
+	rremove("xlab")
+
+## Belowground biomass LA rural by urbanization plot
+belowground.biomass.LA.rural.by.urbanization.plot <- ggscatter(
+  data = local.adaptation.by.urbanization.rural.data.long,
+  x = "Standardized_Estimate",
+  y = "BG_Biomass_LA_Rural",
+  size = 2,
+  xlab = "Standardized Estimate",
+  ylab = "Belowground Biomass \n LA Index_Rural",
+  color = "Urbanization_Metric",
+  palette = mako.urbanization,
+  add = "reg.line",
+  conf.int = TRUE,
+  ggtheme = theme_pubr(),
+  title = "(B)",
+  facet.by = "Urbanization_Metric"
+) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20") +
+	rremove("x.text") +
+	rremove("xlab")
+
+## Nodule density LA rural by urbanization plot
+nodule.density.LA.rural.by.urbanization.plot <- ggscatter(
+  data = local.adaptation.by.urbanization.rural.data.long,
+  x = "Standardized_Estimate",
+  y = "Nod_Density_LA_Rural",
+  size = 2,
+  xlab = "Standardized Estimate",
+  ylab = "Nodule Density \n LA Index_Rural",
+  color = "Urbanization_Metric",
+  palette = mako.urbanization,
+  add = "reg.line",
+  conf.int = TRUE,
+  ggtheme = theme_pubr(),
+  title = "(C)",
+  facet.by = "Urbanization_Metric"
+) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20") +
+	rremove("x.text") +
+	rremove("xlab")
+
+## Fixing nodule density LA rural by urbanization plot
+fixing.nodule.density.LA.rural.by.urbanization.plot <- ggscatter(
+  data = local.adaptation.by.urbanization.rural.data.long,
+  x = "Standardized_Estimate",
+  y = "Fix_Nod_Density_LA_Rural",
+  size = 2,
+  xlab = "Standardized Estimate",
+  ylab = "Fixing Nodule Density \n LA Index_Rural",
+  color = "Urbanization_Metric",
+  palette = mako.urbanization,
+  add = "reg.line",
+  conf.int = TRUE,
+  ggtheme = theme_pubr(),
+  title = "(D)",
+  facet.by = "Urbanization_Metric"
+) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20")
+```
+
+\vspace{10pt}
+
+```{r Arrange the Local-Nonlocal_Rural by Urbanization Figure, echo = TRUE, results = "hide"}
+LA.index.rural.by.urbanization.figure <- ggarrange(
+  aboveground.biomass.LA.rural.by.urbanization.plot,
+  belowground.biomass.LA.rural.by.urbanization.plot,
+  nodule.density.LA.rural.by.urbanization.plot,
+  fixing.nodule.density.LA.rural.by.urbanization.plot,
+  nrow = 4,
+  ncol = 1,
+  align = "hv",
+  legend = "top",
+  common.legend = TRUE
+)
+```
+
+\vspace{10pt}
+
+```{r Save the Local-Nonlocal_Rural by Urbanization Figure, echo = TRUE, results = "hide"}
+## Save the figure
+ggsave(
+	"fig_S5-local_adaptation_rural_urbanization-base.pdf",
+  plot = LA.index.rural.by.urbanization.figure,
+  device = "pdf",
+  path = "figures/",
+  width = 12.5,
+  height = 12.5,
+  units = "in",
+  dpi = 600
+)
+```
+
+
+
+
+
+\newpage
+## Local - Nonlocal~Urban~ Local Adaptation Scatterplots
+
+```{r Set the Local-Nonlocal_Urban by Urbanization Scatterplots, echo = TRUE, results = "hide"}
+## Aboveground biomass LA urban by urbanization plot
+aboveground.biomass.LA.urban.by.urbanization.plot <- ggscatter(
+  data = local.adaptation.by.urbanization.urban.data.long,
+  x = "Standardized_Estimate",
+  y = "AG_Biomass_LA_Urban",
+  size = 2,
+  xlab = "Standardized Estimate",
+  ylab = "Aboveground Biomass \n LA Index_Urban",
+  color = "Urbanization_Metric",
+  palette = mako.urbanization,
+  add = "reg.line",
+  conf.int = TRUE,
+  ggtheme = theme_pubr(),
+  title = "(A)",
+  facet.by = "Urbanization_Metric"
+) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20") +
+	rremove("x.text") +
+	rremove("xlab")
+
+## Belowground biomass LA urban by urbanization plot
+belowground.biomass.LA.urban.by.urbanization.plot <- ggscatter(
+  data = local.adaptation.by.urbanization.urban.data.long,
+  x = "Standardized_Estimate",
+  y = "BG_Biomass_LA_Urban",
+  size = 2,
+  xlab = "Standardized Estimate",
+  ylab = "Belowground Biomass \n LA Index_Urban",
+  color = "Urbanization_Metric",
+  palette = mako.urbanization,
+  add = "reg.line",
+  conf.int = TRUE,
+  ggtheme = theme_pubr(),
+  title = "(B)",
+  facet.by = "Urbanization_Metric"
+) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20") +
+	rremove("x.text") +
+	rremove("xlab")
+
+## Nodule density LA urban by urbanization plot
+nodule.density.LA.urban.by.urbanization.plot <- ggscatter(
+  data = local.adaptation.by.urbanization.urban.data.long,
+  x = "Standardized_Estimate",
+  y = "Nod_Density_LA_Urban",
+  size = 2,
+  xlab = "Standardized Estimate",
+  ylab = "Nodule Density \n LA Index_Urban",
+  color = "Urbanization_Metric",
+  palette = mako.urbanization,
+  add = "reg.line",
+  conf.int = TRUE,
+  ggtheme = theme_pubr(),
+  title = "(C)",
+  facet.by = "Urbanization_Metric"
+) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20") +
+	rremove("x.text") +
+	rremove("xlab")
+
+## Fixing nodule density LA urban by urbanization plot
+fixing.nodule.density.LA.urban.by.urbanization.plot <- ggscatter(
+  data = local.adaptation.by.urbanization.urban.data.long,
+  x = "Standardized_Estimate",
+  y = "Fix_Nod_Density_LA_Urban",
+  size = 2,
+  xlab = "Standardized Estimate",
+  ylab = "Fixing Nodule Density \n LA Index_Urban",
+  color = "Urbanization_Metric",
+  palette = mako.urbanization,
+  add = "reg.line",
+  conf.int = TRUE,
+  ggtheme = theme_pubr(),
+  title = "(D)",
+  facet.by = "Urbanization_Metric"
+) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20")
+```
+
+\vspace{10pt}
+
+```{r Arrange the Local-Nonlocal_Urban by Urbanization Figure, echo = TRUE, results = "hide"}
+LA.index.urban.by.urbanization.figure <- ggarrange(
+  aboveground.biomass.LA.urban.by.urbanization.plot,
+  belowground.biomass.LA.urban.by.urbanization.plot,
+  nodule.density.LA.urban.by.urbanization.plot,
+  fixing.nodule.density.LA.urban.by.urbanization.plot,
+  nrow = 4,
+  ncol = 1,
+  align = "hv",
+  legend = "top",
+  common.legend = TRUE
+)
+```
+
+\vspace{10pt}
+
+```{r Save the Local-Nonlocal_Urban by Urbanization Figure, echo = TRUE, results = "hide"}
+## Save the figure
+ggsave(
+	"fig_S6-local_adaptation_urban_urbanization-base.pdf",
+  plot = LA.index.urban.by.urbanization.figure,
+  device = "pdf",
+  path = "figures/",
+  width = 12.5,
+  height = 12.5,
+  units = "in",
+  dpi = 600
+)
+```
+
+
+
+
+
+\newpage
+# Fitness by Rhizobia & Adaptation by Microbiome Dissimilarity
+
+\vspace{10pt}
+
+## Fitness by Rhizobium Abundance
+
+```{r Load Data: Fitness by Rhizobium Abundance, echo = TRUE}
+## Read in fitness by rhizobium abundance data
+fitness.by.rhizobia.data <- read_rds(
+  file = "data/fitness_by_rhizobia_data.rds"
+)
+```
+
+\vspace{10pt}
+
+```{r Set the Figures: Fitness by Rhizobium Abundance, echo = TRUE}
+## Aboveground Biomass
+aboveground.biomass.by.rhizobium.plot <- ggscatter(
+  data = fitness.by.rhizobia.data,
+  x = "Summed_Abundance",
+  y = "Aboveground_Biomass",
+  size = 2,
+  xlab = "Rhizobium Abundance",
+  ylab = "Aboveground Biomass (g)",
+  color = "Nitrogen",
+  palette = magma.nitrogen,
+  add = "reg.line",
+  conf.int = TRUE,
+  ggtheme = theme_pubr(),
+  title = "(A)"
+) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20") +
+  rremove("xlab") +
+  rremove("x.text")
+
+## Belowground Biomass
+belowground.biomass.by.rhizobium.plot <- ggscatter(
+  data = fitness.by.rhizobia.data,
+  x = "Summed_Abundance",
+  y = "Belowground_Biomass",
+  size = 2,
+  xlab = "Rhizobium Abundance",
+  ylab = "Belowground Biomass (g)",
+  color = "Nitrogen",
+  palette = magma.nitrogen,
+  add = "reg.line",
+  conf.int = TRUE,
+  ggtheme = theme_pubr(),
+  title = "(C)"
+) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20") +
+  rremove("xlab") +
+  rremove("x.text")
+
+## Nodule Density
+nodule.density.by.rhizobium.plot <- ggscatter(
+  data = fitness.by.rhizobia.data,
+  x = "Summed_Abundance",
+  y = "Nodule_Density",
+  size = 2,
+  xlab = "Rhizobium Abundance",
+  ylab = "Nodule Density \n (no./cm)",
+  color = "Nitrogen",
+  palette = magma.nitrogen,
+  add = "reg.line",
+  conf.int = TRUE,
+  ggtheme = theme_pubr(),
+  title = "(E)"
+) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20") +
+  rremove("xlab") +
+  rremove("x.text")
+
+## Fixing Nodule Density
+fixing.nodule.density.by.rhizobium.plot <- ggscatter(
+  data = fitness.by.rhizobia.data,
+  x = "Summed_Abundance",
+  y = "Fixing_Nodule_Density",
+  size = 2,
+  xlab = "Rhizobium Abundance",
+  ylab = "Fixing Nodule Density \n (no./cm)",
+  color = "Nitrogen",
+  palette = magma.nitrogen,
+  add = "reg.line",
+  conf.int = TRUE,
+  ggtheme = theme_pubr(),
+  title = "(G)"
+) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20")
+```
+
+
+
+
+
+\newpage
+## Adaptation by Microbiome Dissimilarity
+
+```{r Load Data: Adaptation by Microbiome Dissimilarity, echo = TRUE}
+## Load data for figures
+fitness.by.soil.dissimarility.data <- read_rds(
+	file = "data/fitness_by_soil_dissimarility_data.rds"
+)
+```
+
+\vspace{10pt}
+
+```{r Set the Figures: Adaptation by Microbiome Dissimilarity, echo = TRUE}
+## Aboveground Biomass
+aboveground.biomass.by.dissimilarity.plot <- ggscatter(
+  data = fitness.by.soil.dissimarility.data,
+  x = "BC_Dissimilarity",
+  y = "AG_Biomass_LA_Global",
+  size = 2,
+  xlab = "Microbiome Inoculant Pairwise Dissimilarity",
+  ylab = "Aboveground Biomass \n LA Index",
+  palette = plasma.microbiome.dissimilarity,
+  ggtheme = theme_pubr(),
+  title = "(B)"
+) +
+	geom_smooth(
+		method = "lm", formula = y ~ x, se = TRUE, 
+		colour = plasma.microbiome.dissimilarity, fill = plasma.microbiome.dissimilarity
+	) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20") +
+  rremove("xlab") +
+  rremove("x.text")
+
+## Belowground Biomass
+belowground.biomass.by.dissimilarity.plot <- ggscatter(
+  data =  fitness.by.soil.dissimarility.data,
+  x = "BC_Dissimilarity",
+  y = "BG_Biomass_LA_Global",
+  size = 2,
+  xlab = "Microbiome Inoculant Pairwise Dissimilarity",
+  ylab = "Belowground Biomass \n LA Index",
+  palette = plasma.microbiome.dissimilarity,
+  ggtheme = theme_pubr(),
+  title = "(D)"
+) +
+	geom_smooth(
+		method = "lm", formula = y ~ x, se = TRUE, 
+		colour = plasma.microbiome.dissimilarity, fill = plasma.microbiome.dissimilarity
+	) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20") +
+  rremove("xlab") +
+  rremove("x.text")
+
+## Nodule Density
+nodule.density.by.dissimilarity.plot <- ggscatter(
+  data = fitness.by.soil.dissimarility.data,
+  x = "BC_Dissimilarity",
+  y = "Nod_Density_LA_Global",
+  size = 2,
+  xlab = "Microbiome Inoculant Pairwise Dissimilarity",
+  ylab = "Nodule Density \n LA Index",
+  palette = plasma.microbiome.dissimilarity,
+  ggtheme = theme_pubr(),
+  title = "(F)"
+) +
+	geom_smooth(
+		method = "lm", formula = y ~ x, se = TRUE, 
+		colour = plasma.microbiome.dissimilarity, fill = plasma.microbiome.dissimilarity
+	) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20") +
+  rremove("xlab") +
+  rremove("x.text")
+
+## Fixing Nodule Density
+fixing.nodule.density.by.dissimilarity.plot <- ggscatter(
+  data = fitness.by.soil.dissimarility.data,
+  x = "BC_Dissimilarity",
+  y = "Fix_Nod_Density_LA_Global",
+  size = 2,
+  xlab = "Microbiome Inoculant Pairwise Dissimilarity",
+  ylab = "Fixing Nodule Density \n LA Index",
+  palette = plasma.microbiome.dissimilarity,
+  ggtheme = theme_pubr(),
+  title = "(H)"
+) +
+	geom_smooth(
+		method = "lm", formula = y ~ x, se = TRUE, 
+		colour = plasma.microbiome.dissimilarity, fill = plasma.microbiome.dissimilarity
+	) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20")
+```
+
+\vspace{10pt}
+
+```{r Arrange the Figures: Fitness by Rhizobium Abundance, echo = TRUE, results = "hide"}
+## Arrange the fitness by rhizobium abundance and dissimilarity figure
+fitness.by.rhizobium.and.dissimilarity.figure <- ggarrange(
+  aboveground.biomass.by.rhizobium.plot, aboveground.biomass.by.dissimilarity.plot,
+  belowground.biomass.by.rhizobium.plot, belowground.biomass.by.dissimilarity.plot,
+  nodule.density.by.rhizobium.plot, nodule.density.by.dissimilarity.plot,
+  fixing.nodule.density.by.rhizobium.plot, fixing.nodule.density.by.dissimilarity.plot,
+  nrow = 4,
+  ncol = 2,
+  align = "hv",
+  legend = "top",
+  common.legend = TRUE
+)
+```
+
+\vspace{10pt}
+
+```{r Save the Figure: Fitness by Rhizobia & Adaptation by Microbiome Dissimilarity, echo = TRUE}
+## Save the figure
+ggsave(
+	"fig_5-fitness_by_rhizobium_abundance_and_dissimilarity-base.pdf",
+  plot = fitness.by.rhizobium.and.dissimilarity.figure,
+  device = "pdf",
+  path = "figures/",
+  width = 12.5,
+  height = 12.5,
+  units = "in",
+  dpi = 600
+)
+```
+
+
+
+
+
+
+
+\newpage
+# Supplementary Figures
+
+
+
+\newpage
+## Global Microbiome $\times$ Nitrogen
+
+\vspace{10pt}
+
+### Data Management
+
+```{r Global Microbiome x Nitrogen Data Management, echo = TRUE}
+## Aggregate data by population means for the reaction norm plots
+# Aboveground biomass
+aboveground.biomass.global.population.mean.data <- aggregate(
+  Aboveground_Biomass ~ Population + Microbiome_Global + Nitrogen,
+  data = biomass.data,
+  FUN = mean
+)
+
+# Belowground biomass
+belowground.biomass.global.population.mean.data <- aggregate(
+  Belowground_Biomass ~ Population + Microbiome_Global + Nitrogen,
+  data = biomass.data,
+  FUN = mean
+)
+
+# Nodule density
+nodule.density.global.population.mean.data <- aggregate(
+  Nodule_Density ~ Population + Microbiome_Global + Nitrogen,
+  data = nodule.data,
+  FUN = mean
+)
+
+# Fixing nodule density
+fixing.nodule.density.global.population.mean.data <- aggregate(
+  Fixing_Nodule_Density ~ Population + Microbiome_Global + Nitrogen,
+  data = nodule.data,
+  FUN = mean
+)
+```
+
+
+
+
+
+\newpage
+### Global Microbiome $\times$ Nitrogen Treatment Means
+
+```{r Set the Base Global M x N Treatment Means, echo = TRUE}
+## Aboveground Biomass
+aboveground.biomass.global.MN.treatment.means.base.plot <- ggerrorplot(
+  data = aboveground.biomass.global.population.mean.data,
+  x = "Microbiome_Global",
+  y = "Aboveground_Biomass",
+  desc_stat = "mean_se",
+  size = 2,
+  xlab = "Microbiome Treatment",
+  ylab = "Aboveground Biomass (g)",
+  title = "(A)",
+  color = "Microbiome_Global",
+  palette = plasma.microbiome.global,
+  facet.by = "Nitrogen",
+  ggtheme = theme_pubr()
+) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20") +
+  rremove("x.text") +
+  rremove("xlab")
+
+## Belowground Biomass
+belowground.biomass.global.MN.treatment.means.base.plot <- ggerrorplot(
+  data = belowground.biomass.global.population.mean.data,
+  x = "Microbiome_Global",
+  y = "Belowground_Biomass",
+  desc_stat = "mean_se",
+  size = 2,
+  xlab = "Microbiome Treatment",
+  ylab = "Belowground Biomass (g)",
+  title = "(C)",
+  color = "Microbiome_Global",
+  palette = plasma.microbiome.global,
+  facet.by = "Nitrogen",
+  ggtheme = theme_pubr()
+) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20") +
+  rremove("x.text") +
+  rremove("xlab")
+
+## Nodule Density
+nodule.density.global.MN.treatment.means.base.plot <- ggerrorplot(
+  data = nodule.density.global.population.mean.data,
+  x = "Microbiome_Global",
+  y = "Nodule_Density",
+  desc_stat = "mean_se",
+  size = 2,
+  xlab = "Microbiome Treatment",
+  ylab = "Nodule Density \n (no./cm)",
+  title = "(E)",
+  color = "Microbiome_Global",
+  palette = plasma.microbiome.global,
+  facet.by = "Nitrogen",
+  ggtheme = theme_pubr()
+) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20") +
+  rremove("x.text") +
+  rremove("xlab")
+
+## Fixing Nodule Density
+fixing.nodule.density.global.MN.treatment.means.base.plot <- ggerrorplot(
+  data = fixing.nodule.density.global.population.mean.data,
+  x = "Microbiome_Global",
+  y = "Fixing_Nodule_Density",
+  desc_stat = "mean_se",
+  size = 2,
+  xlab = "Microbiome Treatment",
+  ylab = "Fixing Nodule Density \n (no./cm)",
+  title = "(G)",
+  color = "Microbiome_Global",
+  palette = plasma.microbiome.global,
+  facet.by = "Nitrogen",
+  ggtheme = theme_pubr()
+) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20")
+```
+
+
+
+
+
+\newpage
+### Global Microbiome $\times$ Nitrogen Reaction Norms
+
+```{r Set the Base Global M x N Reaction Norms, echo = TRUE}
+## Aboveground Biomass
+aboveground.biomass.global.MN.reaction.norm.base.plot <- ggscatter(
+  data = aboveground.biomass.global.population.mean.data,
+  x = "Microbiome_Global",
+  y = "Aboveground_Biomass",
+  shape = 19,
+  size = 3.5,
+  xlab = "Microbiome Treatment",
+  ylab = "Aboveground Biomass (g)",
+  title = "(B)",
+  color = "Microbiome_Global",
+  palette = plasma.microbiome.global,
+  facet.by = "Nitrogen",
+  ggtheme = theme_pubr()
+) +
+  stat_summary(
+    aes(group = Population),
+    fun = mean,
+    geom = "path", position = "identity", size = 0.75,
+    color = "gray65"
+  ) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20") +
+  rremove("x.text") +
+  rremove("xlab") +
+  rremove("ylab")
+
+## Belowground Biomass
+belowground.biomass.global.MN.reaction.norm.base.plot <- ggscatter(
+  data = belowground.biomass.global.population.mean.data,
+  x = "Microbiome_Global",
+  y = "Belowground_Biomass",
+  shape = 19,
+  size = 3.5,
+  xlab = "Microbiome Treatment",
+  ylab = "Belowground Biomass (g)",
+  title = "(D)",
+  color = "Microbiome_Global",
+  palette = plasma.microbiome.global,
+  facet.by = "Nitrogen",
+  ggtheme = theme_pubr()
+) +
+  stat_summary(
+    aes(group = Population),
+    fun = mean,
+    geom = "path", position = "identity", size = 0.75,
+    color = "gray65"
+  ) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20") +
+  rremove("x.text") +
+  rremove("xlab") +
+  rremove("ylab")
+
+## Nodule Density
+nodule.density.global.MN.reaction.norm.base.plot <- ggscatter(
+  data = nodule.density.global.population.mean.data,
+  x = "Microbiome_Global",
+  y = "Nodule_Density",
+  shape = 19,
+  size = 3.5,
+  xlab = "Microbiome Treatment",
+  ylab = "Nodule Density \n (no./cm)",
+  title = "(F)",
+  color = "Microbiome_Global",
+  palette = plasma.microbiome.global,
+  facet.by = "Nitrogen",
+  ggtheme = theme_pubr()
+) +
+  stat_summary(
+    aes(group = Population),
+    fun = mean,
+    geom = "path", position = "identity", size = 0.75,
+    color = "gray65"
+  ) +
+  coord_cartesian(ylim = c(0, 1.75)) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20") +
+  rremove("x.text") +
+  rremove("xlab") +
+  rremove("ylab")
+
+## Fixing Nodule Density
+fixing.nodule.density.global.MN.reaction.norm.base.plot <- ggscatter(
+  data = fixing.nodule.density.global.population.mean.data,
+  x = "Microbiome_Global",
+  y = "Fixing_Nodule_Density",
+  shape = 19,
+  size = 3.5,
+  xlab = "Microbiome Treatment",
+  ylab = "Fixing Nodule Density \n (no./cm)",
+  title = "(H)",
+  color = "Microbiome_Global",
+  palette = plasma.microbiome.global,
+  facet.by = "Nitrogen",
+  ggtheme = theme_pubr()
+) +
+  stat_summary(
+    aes(group = Population),
+    fun = mean,
+    geom = "path", position = "identity", size = 0.75,
+    color = "gray65"
+  ) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20") +
+  rremove("ylab")
+```
+
+\vspace{10pt}
+
+```{r Arrange the Global M x N Reaction Norm Figure, echo = TRUE}
+## Arrange the figure
+global.MN.treatment.means.reaction.norms.figure <- ggarrange(
+  aboveground.biomass.global.MN.treatment.means.base.plot,
+  aboveground.biomass.global.MN.reaction.norm.base.plot,
+  belowground.biomass.global.MN.treatment.means.base.plot,
+  belowground.biomass.global.MN.reaction.norm.base.plot,
+  nodule.density.global.MN.treatment.means.base.plot,
+  nodule.density.global.MN.reaction.norm.base.plot,
+  fixing.nodule.density.global.MN.treatment.means.base.plot,
+  fixing.nodule.density.global.MN.reaction.norm.base.plot,
+  nrow = 4,
+  ncol = 2,
+  align = "hv",
+  legend = "top",
+  common.legend = TRUE
+)
+```
+
+\vspace{10pt}
+
+```{r Save the Global M x N Reaction Norm Figure, echo = TRUE}
+## Save the figure
+ggsave(
+	"fig_S1-global_M_x_N_treatment_means_reaction_norms-base.pdf",
+  plot = global.MN.treatment.means.reaction.norms.figure,
+  device = "pdf",
+  path = "figures/",
+  width = 15,
+  height = 12.5,
+  units = "in",
+  dpi = 600
+)
+```
+
+
+
+\newpage
+## Fitness by Rhizobium Relative Abundance
+
+```{r Set the Figures: Fitness by Rhizobium Relative Abundance, echo = TRUE}
+## Aboveground Biomass
+aboveground.biomass.by.rhizobium.RA.plot <- ggscatter(
+  data = fitness.by.rhizobia.data,
+  x = "Summed_Relative_Abundance",
+  y = "Aboveground_Biomass",
+  size = 2,
+  xlab = "Rhizobium Relative Abundance",
+  ylab = "Aboveground Biomass (g)",
+  color = "Nitrogen",
+  palette = magma.nitrogen,
+  add = "reg.line",
+  conf.int = TRUE,
+  ggtheme = theme_pubr(),
+  title = "(A)"
+) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20") +
+  rremove("xlab") +
+  rremove("x.text")
+
+## Belowground Biomass
+belowground.biomass.by.rhizobium.RA.plot <- ggscatter(
+  data = fitness.by.rhizobia.data,
+  x = "Summed_Relative_Abundance",
+  y = "Belowground_Biomass",
+  size = 2,
+  xlab = "Rhizobium Relative Abundance",
+  ylab = "Belowground Biomass (g)",
+  color = "Nitrogen",
+  palette = magma.nitrogen,
+  add = "reg.line",
+  conf.int = TRUE,
+  ggtheme = theme_pubr(),
+  title = "(B)"
+) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20") +
+  rremove("xlab") +
+  rremove("x.text")
+
+## Nodule Density
+nodule.density.by.rhizobium.RA.plot <- ggscatter(
+  data = fitness.by.rhizobia.data,
+  x = "Summed_Relative_Abundance",
+  y = "Nodule_Density",
+  size = 2,
+  xlab = "Rhizobium Relative Abundance",
+  ylab = "Nodule Density \n (no./cm)",
+  color = "Nitrogen",
+  palette = magma.nitrogen,
+  add = "reg.line",
+  conf.int = TRUE,
+  ggtheme = theme_pubr(),
+  title = "(C)"
+) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20") +
+  rremove("xlab") +
+  rremove("x.text")
+
+## Fixing Nodule Density
+fixing.nodule.density.by.rhizobium.RA.plot <- ggscatter(
+  data = fitness.by.rhizobia.data,
+  x = "Summed_Relative_Abundance",
+  y = "Fixing_Nodule_Density",
+  size = 2,
+  xlab = "Rhizobium Relative Abundance",
+  ylab = "Fixing Nodule Density \n (no./cm)",
+  color = "Nitrogen",
+  palette = magma.nitrogen,
+  add = "reg.line",
+  conf.int = TRUE,
+  ggtheme = theme_pubr(),
+  title = "(D)"
+) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20")
+```
+
+\vspace{10pt}
+
+```{r Arrange the Figures: Fitness by Rhizobium Relative Abundance, echo = TRUE}
+## Arrange the fitness by rhizobium relative abundance figure
+fitness.by.rhizobium.relative.abundance.figure <- ggarrange(
+  aboveground.biomass.by.rhizobium.RA.plot,
+  belowground.biomass.by.rhizobium.RA.plot,
+  nodule.density.by.rhizobium.RA.plot,
+  fixing.nodule.density.by.rhizobium.RA.plot,
+  nrow = 4,
+  ncol = 1,
+  align = "v",
+  legend = "top",
+  common.legend = TRUE
+)
+```
+
+\vspace{10pt}
+
+```{r Save the Figure: Fitness by Rhizobium Relative Abundance, echo = TRUE}
+## Save the figure
+ggsave(
+	"fig_S7-fitness_by_rhizobium_relative_abundance-base.pdf",
+  plot = fitness.by.rhizobium.relative.abundance.figure,
+  device = "pdf",
+  path = "figures/",
+  width = 9,
+  height = 12,
+  units = "in",
+  dpi = 600
+)
+```
+
+
+
+
+
+\newpage
+## Rhizobium Abundance by Microbiome & Nitrogen Treatments
+
+```{r Set the Figures: Rhizobium Abundance M x N, echo = TRUE}
+## Rhizobium abundance
+rhizobium.abundance.MN.figure <- ggerrorplot(
+  data = fitness.by.rhizobia.data,
+  x = "Microbiome_Global",
+  y = "Summed_Abundance",
+  desc_stat = "mean_se",
+  size = 2,
+  xlab = "Microbiome",
+  ylab = "Rhizobium Abundance",
+  color = "Microbiome_Global",
+  palette = plasma.microbiome.global,
+  facet.by = "Nitrogen",
+  ggtheme = theme_pubr(),
+  title = "(A)"
+) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20") +
+  rremove("xlab") +
+  rremove("x.text")
+
+## Rhizobium relative abundance
+rhizobium.relative.abundance.MN.figure <- ggerrorplot(
+  data = fitness.by.rhizobia.data,
+  x = "Microbiome_Global",
+  y = "Summed_Relative_Abundance",
+  desc_stat = "mean_se",
+  size = 2,
+  xlab = "Microbiome",
+  ylab = "Rhizobium Relative Abundance",
+  color = "Microbiome_Global",
+  palette = plasma.microbiome.global,
+  facet.by = "Nitrogen",
+  ggtheme = theme_pubr(),
+  title = "(B)"
+) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20")
+```
+
+\vspace{10pt}
+
+```{r Arrange the Figure: Rhizobium Abundance M x N, echo = TRUE}
+## Arrange the rhizobium abundance by microbiome and nitrogen figure
+fitness.by.rhizobium.relative.abundance.figure <- ggarrange(
+  rhizobium.abundance.MN.figure,
+  rhizobium.relative.abundance.MN.figure,
+  nrow = 2,
+  ncol = 1,
+  align = "v",
+  legend = "top",
+  common.legend = TRUE
+)
+```
+
+\vspace{10pt}
+
+```{r Save the Figure: Rhizobium Abundance M x N, echo = TRUE}
+## Save the figure
+ggsave(
+	"fig_S9-rhizobium_abundance_M_x_N-base.pdf",
+  plot = fitness.by.rhizobium.relative.abundance.figure,
+  device = "pdf",
+  path = "figures/",
+  width = 12,
+  height = 9,
+  units = "in",
+  dpi = 600
+)
+```
+
+
+
+\newpage
+## Root Community Composition by M \times N and Local Adaptation
+
+```{r Data Management: Root Composition, echo = TRUE}
+## Read in root community composition metadata
+root.sample.metadata <- read_rds(
+  file = "data/root_BC_distance_data.rds"
+) %>%
+	select(Sequence_ID, Population, Microbiome_Global, Nitrogen)
+
+## Read in root NMDS data
+root.BC.NMDS <- read_rds(
+  file = "data/root_BC_NMDS.rds"
+)
+
+## Read in the local adaptation index data
+global.local.adaptation.correlation.data <- read_rds(
+	file = "data/global_local_adaptation_correlation_data.rds"
+)
+
+## Set the NMDS data
+root.composition.by.adaptation.data <- scores(root.BC.NMDS)$sites %>%
+	as.data.frame() %>%
+	rownames_to_column(var = "Sequence_ID") %>%
+	full_join(root.sample.metadata, by = "Sequence_ID") %>%
+	select(Sequence_ID, Population, Microbiome_Global:Nitrogen, NMDS1:NMDS2) %>%
+	left_join(
+		global.local.adaptation.correlation.data,
+		by = c("Population", "Nitrogen")
+	) 
+
+## Add Group_ID for plotting
+root.composition.by.adaptation.data$Group_ID <- paste(
+  root.composition.by.adaptation.data$Microbiome_Global,
+  root.composition.by.adaptation.data$Nitrogen,
+  sep = "-"
+)
+```
+
+\vspace{10pt}
+
+```{r Data Management: Root envfit, echo = TRUE}
+## Set seed for permutation test
+set.seed(666)
+
+## envfit
+root.NMDS.envfit <- envfit(
+	root.BC.NMDS,
+	root.composition.by.adaptation.data %>% select(AG_Biomass_LA_Global:Fix_Nod_Density_LA_Global),
+	permutations = 1000,
+	na.rm = TRUE
+)
+
+## envfit results (R2, P-value)
+# AG biomass = 0.004, 0.918
+# BG biomass = 0.036, 0.338
+# Nod density = 0.018, 0.587
+# Fix density = 0.011, 0.724
+
+# Prepare envfit vectors for plotting
+root.envfit.vectors <- data.frame(scores(root.NMDS.envfit, "vectors")) * ordiArrowMul(root.NMDS.envfit)
+```
+
+\vspace{10pt}
+
+```{r Set the Figure: Root Community Composition & Local Adaptation, echo = TRUE}
+root.ordination.figure <- ggplot(
+  data = root.composition.by.adaptation.data,
+  aes(x = NMDS1, y = NMDS2)
+) +
+  stat_ellipse(
+    geom = "polygon",
+    size = 1.5,
+    alpha = 0.25,
+    aes(
+      x = NMDS1, y = NMDS2,
+      colour = Microbiome_Global, fill = Microbiome_Global,
+      group = Group_ID, lty = Nitrogen
+    )
+  ) +
+  geom_segment(
+    data = root.envfit.vectors,
+    aes(x = 0, y = 0, xend = NMDS1, yend = NMDS2),
+    size = 1,
+    alpha = 0.75,
+    colour = "gray15"
+  ) +
+  geom_text(
+    data = root.envfit.vectors,
+    aes(x = NMDS1, y = NMDS2),
+    colour = "gray0",
+    fontface = "bold",
+    label = row.names(root.envfit.vectors)
+  ) +
+  scale_colour_manual(values = plasma.microbiome.global) +
+  scale_fill_manual(values = plasma.microbiome.global) +
+  theme_pubr() +
+  labs(x = "NMDS 1", y = "NMDS 2") +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20") +
+  theme(legend.position = "top")
+```
+
+\vspace{10pt}
+
+```{r Save the Figure: Root Community Composition M x N, echo = TRUE}
+## Save the figure
+ggsave(
+	"fig_S9-root_community_composition_M_x_N-base.pdf",
+  plot = root.ordination.figure,
+  device = "pdf",
+  path = "figures/",
+  width = 8,
+  height = 6,
+  units = "in",
+  dpi = 600
+)
+```
+
+
+
+
+\newpage
+## Inoculant Type PCoA & Rhizobium Abundances
+
+```{r Load Data: Inoculant Type PCoA & Rhizobium Abundances, echo = TRUE}
+## Read in inoculant vs. control community composition metadata
+inoculant.community.composition.metadata <- read_csv(
+  "data/localAdaptation-microbiome_data-soil.csv",
+  show_col_types = FALSE
+) %>%
+  select(Sequence_ID, Population, Inoculant_Type) %>%
+	filter(Population != "P25")
+
+## Read in inoculant vs control PCoA object
+inoculant.PCoA <- read_rds(
+  file = "data/inoculant_PCoA.rds"
+)
+
+## Set the PCoA data for plotting
+inoculant.PCoA.data <- as_tibble(scores(inoculant.PCoA)$sites) %>%
+  bind_cols(inoculant.community.composition.metadata)
+
+## Read in rhizobium abundance data
+inoculant.rhizobium.abundance.data <- read_rds(
+  file = "data/inoculant_rhizobium_abundance_data.rds"
+)
+
+## Re-order variables for the facet plots
+# PCoA data
+inoculant.PCoA.data$Inoculant_Type <- factor(
+  inoculant.PCoA.data$Inoculant_Type,
+  levels = c("Local", "Urban", "Rural", "Ambient_N", "N_Addition")
+)
+# Rhizobium abundance data
+inoculant.rhizobium.abundance.data$Inoculant_Type <- factor(
+  inoculant.rhizobium.abundance.data$Inoculant_Type,
+  levels = c("Local", "Urban", "Rural", "Ambient_N", "N_Addition")
+)
+```
+
+\vspace{10pt}
+
+```{r Set the Figures: Inoculant Type PCoA & Rhizobium Abundances, echo = TRUE}
+## Set the PCoA plot
+inoculant.PCoA.plot <- ggplot(
+  data = inoculant.PCoA.data,
+  aes(x = MDS1, y = MDS2, shape = Inoculant_Type, color = Inoculant_Type)
+) +
+  geom_point(size = 3.5, alpha = 0.85) +
+  scale_shape_manual(values = c(19, 15, 17, 8, 13)) +
+  scale_colour_manual(values = inoculant.type.palette) +
+  theme_pubr() +
+  labs(x = "PCoA 1 (X% Variation)", y = "PCoA 2 (Y% Variation)") +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20") +
+  theme(legend.position = "top") +
+  ggtitle("(A)")
+
+## Set the rhizobium abundance plot
+inoculant.rhizobium.abundance.plot <- ggerrorplot(
+  data = inoculant.rhizobium.abundance.data,
+  x = "Inoculant_Type",
+  y = "Summed_Rhizobium_Abundance",
+  desc_stat = "mean_se",
+  size = 2,
+  xlab = "Inoculant Type",
+  ylab = "Rhizobium Abundance",
+  color = "Inoculant_Type",
+  palette = inoculant.type.palette,
+  ggtheme = theme_pubr(),
+  title = "(B)"
+) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20")
+```
+
+\vspace{10pt}
+
+```{r Arrange the Figure: Inoculant Type PCoA & Rhizobium Abundances, echo = TRUE}
+## Arrange the inoculant vs. control community composition + rhizobium figure
+inoculant.PCoA.rhizobium.figure <- ggarrange(
+  inoculant.PCoA.plot,
+  inoculant.rhizobium.abundance.plot,
+  nrow = 1,
+  ncol = 2,
+  align = "v",
+  legend = "top",
+  common.legend = TRUE
+)
+```
+
+\vspace{10pt}
+
+```{r Save the Figure: Inoculant Community Composition, echo = TRUE}
+## Save the figure
+ggsave(
+	"fig_S10-inoculant_PCoA_rhizobium_abundance-base.pdf",
+  plot = inoculant.PCoA.rhizobium.figure,
+  device = "pdf",
+  path = "figures/",
+  width = 12,
+  height = 4,
+  units = "in",
+  dpi = 600
+)
+```
+
+
+
+
+\newpage
+# Figures for Presentations
+
+\vspace{10pt}
+
+## Microbiome $\times$ Nitrogen Reaction Norms & Treatment Means
+
+```{r Set the Plant and Rhizobia M x N Reaction Treatment Means, echo = TRUE}
+## Aboveground Biomass
+aboveground.biomass.MN.treatment.means.base.presentation.plot <- ggerrorplot(
+  data = aboveground.biomass.population.mean.data,
+  x = "Microbiome",
+  y = "Aboveground_Biomass",
+  desc_stat = "mean_se",
+  size = 2,
+  xlab = "Microbiome Treatment",
+  ylab = "Aboveground Biomass (g)",
+  color = "Microbiome",
+  palette = plasma.microbiome,
+  facet.by = "Nitrogen",
+  ggtheme = theme_pubr()
+) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20")
+
+## Nodule Density
+nodule.density.MN.treatment.means.base.presentation.plot <- ggerrorplot(
+  data = nodule.density.population.mean.data,
+  x = "Microbiome",
+  y = "Nodule_Density",
+  desc_stat = "mean_se",
+  size = 2,
+  xlab = "Microbiome Treatment",
+  ylab = "Nodule Density \n (no./cm)",
+  color = "Microbiome",
+  palette = plasma.microbiome,
+  facet.by = "Nitrogen",
+  ggtheme = theme_pubr()
+) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20")
+```
+
+\newpage
+
+```{r Set the Plant and Rhizobia M x N Reaction Reaction Norms, echo = TRUE}
+## Aboveground Biomass
+aboveground.biomass.MN.reaction.norm.base.presentation.plot <- ggscatter(
+  data = aboveground.biomass.population.mean.data,
+  x = "Microbiome",
+  y = "Aboveground_Biomass",
+  shape = 19,
+  size = 3.5,
+  xlab = "Microbiome Treatment",
+  ylab = "Aboveground Biomass (g)",
+  color = "Microbiome",
+  palette = plasma.microbiome,
+  facet.by = "Nitrogen",
+  ggtheme = theme_pubr()
+) +
+  stat_summary(
+    aes(group = Population),
+    fun = mean,
+    geom = "path", position = "identity", size = 0.75,
+    color = "gray65"
+  ) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20")
+
+## Nodule Density
+nodule.density.MN.reaction.norm.base.presentation.plot <- ggscatter(
+  data = nodule.density.population.mean.data,
+  x = "Microbiome",
+  y = "Nodule_Density",
+  shape = 19,
+  size = 3.5,
+  xlab = "Microbiome Treatment",
+  ylab = "Nodule Density \n (no./cm)",
+  color = "Microbiome",
+  palette = plasma.microbiome,
+  facet.by = "Nitrogen",
+  ggtheme = theme_pubr()
+) +
+  stat_summary(
+    aes(group = Population),
+    fun = mean,
+    geom = "path", position = "identity", size = 0.75,
+    color = "gray65"
+  ) +
+  coord_cartesian(ylim = c(0, 1.75)) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20")
+```
+
+\vspace{10pt}
+
+```{r Arrange the Plant and Rhizobia M x N Reaction Norm Figures, echo = TRUE}
+## Arrange the aboveground biomass figure
+AG.biomass.treatment.means.reaction.norms.figure <- ggarrange(
+  aboveground.biomass.MN.treatment.means.base.presentation.plot,
+  aboveground.biomass.MN.reaction.norm.base.presentation.plot,
+  nrow = 1,
+  ncol = 2,
+  align = "v",
+  legend = "top",
+  common.legend = TRUE
+)
+
+## Arrange the nodule density figure
+nodule.density.treatment.means.reaction.norms.figure <- ggarrange(
+  nodule.density.MN.treatment.means.base.presentation.plot,
+  nodule.density.MN.reaction.norm.base.presentation.plot,
+  nrow = 1,
+  ncol = 2,
+  align = "v",
+  legend = "top",
+  common.legend = TRUE
+)
+```
+
+\vspace{10pt}
+
+```{r Save the Plant and Rhizobia M x N Reaction Norm Figures, echo = TRUE}
+## Save the figures
+# Aboveground biomass
+ggsave(
+	"fig_P1-AG_biomass_M_x_N-presentation-base.pdf",
+  plot = AG.biomass.treatment.means.reaction.norms.figure,
+  device = "pdf",
+  path = "figures/presentation_figures/",
+  width = 15,
+  height = 7.5,
+  units = "in",
+  dpi = 600
+)
+
+# Nodule density
+ggsave(
+	"fig_P2-nodule_density_M_x_N-presentation-base.pdf",
+  plot = nodule.density.treatment.means.reaction.norms.figure,
+  device = "pdf",
+  path = "figures/presentation_figures/",
+  width = 15,
+  height = 7.5,
+  units = "in",
+  dpi = 600
+)
+```
+
+
+
+
+\newpage
+## Local Adaptation Correlations
+
+```{r Set the Local - Nonlocal_Global Correlation Plots, echo = TRUE}
+## AG biomass ~ nodule density
+global.local.adaptation.presentation.figure <- ggscatter(
+  data = global.local.adaptation.correlation.data,
+  x = "Nod_Density_LA_Global",
+  y = "AG_Biomass_LA_Global",
+  size = 2,
+  xlab = "Nodule Density \n LA Index",
+  ylab = "Aboveground Biomass \n LA Index",
+  color = "Nitrogen",
+  palette = magma.nitrogen,
+  add = "reg.line",
+  conf.int = TRUE,
+  ggtheme = theme_pubr(),
+  facet.by = "Nitrogen"
+) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20")
+```
+
+\vspace{10pt}
+
+```{r Save the Local-Nonlocal_Global Correlation Figure, echo = TRUE, results = "hide"}
+## Save the figure
+ggsave(
+	"fig_P3-local_adaptation_global_correlations-presentation-base.pdf",
+  plot = global.local.adaptation.presentation.figure,
+  device = "pdf",
+  path = "figures/presentation_figures/",
+  width = 10,
+  height = 5,
+  units = "in",
+  dpi = 600
+)
+```
+
+
+
+
+\newpage
+## Local Adaptation by Urbanization Regressions
+
+```{r Set the Local-Nonlocal_Global by Urbanization Presentation Scatterplots, echo = TRUE, results = "hide"}
+## Aboveground biomass LA global by urbanization plot
+aboveground.biomass.LA.global.by.urbanization.presentation.plot <- ggscatter(
+  data = local.adaptation.by.urbanization.global.data.long,
+  x = "Standardized_Estimate",
+  y = "AG_Biomass_LA_Global",
+  size = 2,
+  xlab = "Standardized Estimate",
+  ylab = "Aboveground Biomass \n LA Index_Global",
+  color = "Urbanization_Metric",
+  palette = mako.urbanization,
+  add = "reg.line",
+  conf.int = TRUE,
+  ggtheme = theme_pubr(),
+  facet.by = "Urbanization_Metric"
+) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20") +
+	rremove("x.text") +
+	rremove("xlab")
+
+## Nodule density LA global by urbanization plot
+nodule.density.LA.global.by.urbanization.presentation.plot <- ggscatter(
+  data = local.adaptation.by.urbanization.global.data.long,
+  x = "Standardized_Estimate",
+  y = "Nod_Density_LA_Global",
+  size = 2,
+  xlab = "Standardized Estimate",
+  ylab = "Nodule Density \n LA Index_Global",
+  color = "Urbanization_Metric",
+  palette = mako.urbanization,
+  add = "reg.line",
+  conf.int = TRUE,
+  ggtheme = theme_pubr(),
+  facet.by = "Urbanization_Metric"
+) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20")
+```
+
+\vspace{10pt}
+
+```{r Arrange the Local-Nonlocal_Global by Urbanization Presentation Figure, echo = TRUE, results = "hide"}
+LA.index.global.by.urbanization.presentation.figure <- ggarrange(
+  aboveground.biomass.LA.global.by.urbanization.presentation.plot,
+  nodule.density.LA.global.by.urbanization.presentation.plot,
+  nrow = 2,
+  ncol = 1,
+  align = "hv",
+  legend = "top",
+  common.legend = TRUE
+)
+```
+
+\vspace{10pt}
+
+```{r Save the Local-Nonlocal_Global by Urbanization Presentation Figure, echo = TRUE, results = "hide"}
+## Save the figure
+ggsave(
+	"fig_P4-local_adaptation_global_urbanization-base.pdf",
+  plot = LA.index.global.by.urbanization.presentation.figure,
+  device = "pdf",
+  path = "figures/presentation_figures/",
+  width = 10,
+  height = 7.5,
+  units = "in",
+  dpi = 600
+)
+```
+
+
+
+
+\newpage
+## Fitness by Rhizobium Abundance
+
+```{r Set the Presentation Figures: Fitness by Rhizobium Abundance, echo = TRUE}
+## Aboveground Biomass
+aboveground.biomass.by.rhizobium.presentation.plot <- ggscatter(
+  data = fitness.by.rhizobia.data,
+  x = "Summed_Abundance",
+  y = "Aboveground_Biomass",
+  size = 2,
+  xlab = "Rhizobium Abundance",
+  ylab = "Aboveground Biomass (g)",
+  color = "Nitrogen",
+  palette = magma.nitrogen,
+  add = "reg.line",
+  conf.int = TRUE,
+  ggtheme = theme_pubr()
+) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20") +
+  rremove("xlab") +
+  rremove("x.text")
+
+## Nodule Density
+nodule.density.by.rhizobium.presentation.plot <- ggscatter(
+  data = fitness.by.rhizobia.data,
+  x = "Summed_Abundance",
+  y = "Nodule_Density",
+  size = 2,
+  xlab = "Rhizobium Abundance",
+  ylab = "Nodule Density \n (no./cm)",
+  color = "Nitrogen",
+  palette = magma.nitrogen,
+  add = "reg.line",
+  conf.int = TRUE,
+  ggtheme = theme_pubr()
+) +
+  font("xlab", size = 16, color = "gray0") +
+  font("ylab", size = 16, color = "gray0") +
+  font("xy.text", size = 12, color = "gray20")
+```
+
+\vspace{10pt}
+
+```{r Arrange the Presentation Figures: Fitness by Rhizobium Abundance, echo = TRUE}
+## Arrange the fitness by rhizobium abundance figure
+fitness.by.rhizobium.abundance.presentation.figure <- ggarrange(
+  aboveground.biomass.by.rhizobium.presentation.plot,
+  nodule.density.by.rhizobium.presentation.plot,
+  nrow = 2,
+  ncol = 1,
+  align = "v",
+  legend = "top",
+  common.legend = TRUE
+)
+```
+
+\vspace{10pt}
+
+```{r Save the Presentation Figure: Fitness by Rhizobium Abundance, echo = TRUE}
+## Save the figure
+ggsave(
+	"fig_P5-fitness_by_rhizobium_abundance-presentation-base.pdf",
+  plot = fitness.by.rhizobium.abundance.presentation.figure,
+  device = "pdf",
+  path = "figures/presentation_figures/",
+  width = 10,
+  height = 7.5,
+  units = "in",
+  dpi = 600
+)
+```
+

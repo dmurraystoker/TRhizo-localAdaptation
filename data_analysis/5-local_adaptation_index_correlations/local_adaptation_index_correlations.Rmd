@@ -1,0 +1,526 @@
+---
+title: "TRhizo-localAdaptation"
+subtitle: "Local Adaptation Index Correlations"
+author: "David Murray-Stoker"
+output:
+  pdf_document:
+    toc: true
+    toc_depth: 4
+    fig_caption: yes
+    latex_engine: xelatex
+always_allow_html: true
+---
+
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+options(knitr.graphics.error = FALSE)
+knitr::opts_chunk$set(results = "hold", fig.pos = "H", fig.align = "center", out.width = "92.5%")
+kableExtra::usepackage_latex("float")
+```
+
+```{r Load Packages for R Markdown, include = FALSE}
+library(kableExtra)
+library(knitr)
+```
+
+
+
+
+
+\newpage
+# Load Packages & Data
+
+```{r Load Packages & Data, echo = TRUE, results = "hide"}
+## Load the tidyverse
+library(tidyverse)
+
+## Read in data
+global.local.adaptation.correlation.data <- read_rds(
+  file = "data/global_local_adaptation_correlation_data.rds"
+)
+rural.local.adaptation.correlation.data <- read_rds(
+  file = "data/rural_local_adaptation_correlation_data.rds"
+)
+urban.local.adaptation.correlation.data <- read_rds(
+  file = "data/urban_local_adaptation_correlation_data.rds"
+)
+```
+
+
+
+
+
+\newpage
+# Local - Nonlocal~Global~ Local Adaptation Correlations
+
+## Ambient N
+
+```{r Local - Nonlocal_Global Correlations: Ambient N, echo = TRUE, results = "hide"}
+## Filter data by Ambient N treatment
+global.ambient.N.local.adaptation.correlation.data <- global.local.adaptation.correlation.data %>%
+  filter(Nitrogen == "Ambient_N")
+
+## Aboveground biomass and belowground biomass
+cor.test(
+  global.ambient.N.local.adaptation.correlation.data$AG_Biomass_LA_Global,
+  global.ambient.N.local.adaptation.correlation.data$BG_Biomass_LA_Global,
+  method = "pearson",
+  alternative = "two.sided"
+)
+# r = 0.913 [0.823, 0.958]
+# t = 11.830, df = 28, P < 0.001
+
+## Aboveground biomass and nodule density
+cor.test(
+  global.ambient.N.local.adaptation.correlation.data$AG_Biomass_LA_Global,
+  global.ambient.N.local.adaptation.correlation.data$Nod_Density_LA_Global,
+  method = "pearson",
+  alternative = "two.sided"
+)
+# r = -0.194 [-0.518, 0.179]
+# t = -1.046, df = 28, P = 0.305
+
+## Aboveground biomass and fixing nodule density
+cor.test(
+  global.ambient.N.local.adaptation.correlation.data$AG_Biomass_LA_Global,
+  global.ambient.N.local.adaptation.correlation.data$Fix_Nod_Density_LA_Global,
+  method = "pearson",
+  alternative = "two.sided"
+)
+# r = 0.186 [-0.186, 0.512]
+# t = 1.0041, df = 28, P = 0.324
+
+## Belowground biomass and nodule density
+cor.test(
+  global.ambient.N.local.adaptation.correlation.data$BG_Biomass_LA_Global,
+  global.ambient.N.local.adaptation.correlation.data$Nod_Density_LA_Global,
+  method = "pearson",
+  alternative = "two.sided"
+)
+# r = -0.301 [-0.597, 0.067]
+# t = -1.671, df = 28, P = 0.106
+
+## Belowground biomass and fixing nodule density
+cor.test(
+  global.ambient.N.local.adaptation.correlation.data$BG_Biomass_LA_Global,
+  global.ambient.N.local.adaptation.correlation.data$Fix_Nod_Density_LA_Global,
+  method = "pearson",
+  alternative = "two.sided"
+)
+# r = 0.037 [-0.327, 0.392]
+# t = 0.198, df = 28, P = 0.844
+
+## Nodule density and fixing nodule density
+cor.test(
+  global.ambient.N.local.adaptation.correlation.data$Nod_Density_LA_Global,
+  global.ambient.N.local.adaptation.correlation.data$Fix_Nod_Density_LA_Global,
+  method = "pearson",
+  alternative = "two.sided"
+)
+# r = 0.733 [0.507, 0.865]
+# t = 5.709, df = 28, P < 0.001
+```
+
+
+
+\newpage
+## N Addition
+
+```{r Local - Nonlocal_Global Correlations: N Addition, echo = TRUE, results = "hide"}
+## Filter data by N Addition treatment
+global.N.addition.local.adaptation.correlation.data <- global.local.adaptation.correlation.data %>%
+  filter(Nitrogen == "N_Addition")
+
+## Aboveground biomass and belowground biomass
+cor.test(
+  global.N.addition.local.adaptation.correlation.data$AG_Biomass_LA_Global,
+  global.N.addition.local.adaptation.correlation.data$BG_Biomass_LA_Global,
+  method = "pearson",
+  alternative = "two.sided"
+)
+# r = 0.734 [0.502, 0.867]
+# t = 5.608, df = 27, P < 0.001
+
+## Aboveground biomass and nodule density
+cor.test(
+  global.N.addition.local.adaptation.correlation.data$AG_Biomass_LA_Global,
+  global.N.addition.local.adaptation.correlation.data$Nod_Density_LA_Global,
+  method = "pearson",
+  alternative = "two.sided"
+)
+# r = 0.418 [0.061, 0.681]
+# t = 2.394, df = 27, P = 0.024
+
+## Aboveground biomass and fixing nodule density
+cor.test(
+  global.N.addition.local.adaptation.correlation.data$AG_Biomass_LA_Global,
+  global.N.addition.local.adaptation.correlation.data$Fix_Nod_Density_LA_Global,
+  method = "pearson",
+  alternative = "two.sided"
+)
+# r = 0.225 [-0.154, 0.547]
+# t = 1.200, df = 27, P = 0.240
+
+## Belowground biomass and nodule density
+cor.test(
+  global.N.addition.local.adaptation.correlation.data$BG_Biomass_LA_Global,
+  global.N.addition.local.adaptation.correlation.data$Nod_Density_LA_Global,
+  method = "pearson",
+  alternative = "two.sided"
+)
+# r = 0.253 [-0.125, 0.567]
+# t = 1.361, df = 27, P = 0.185
+
+## Belowground biomass and fixing nodule density
+cor.test(
+  global.N.addition.local.adaptation.correlation.data$BG_Biomass_LA_Global,
+  global.N.addition.local.adaptation.correlation.data$Fix_Nod_Density_LA_Global,
+  method = "pearson",
+  alternative = "two.sided"
+)
+# r = 0.062 [-0.311, 0.419]
+# t = 0.324, df = 27, P = 0.749
+
+## Nodule density and fixing nodule density
+cor.test(
+  global.N.addition.local.adaptation.correlation.data$Nod_Density_LA_Global,
+  global.N.addition.local.adaptation.correlation.data$Fix_Nod_Density_LA_Global,
+  method = "pearson",
+  alternative = "two.sided"
+)
+# r = 0.841 [0.685, 0.923]
+# t = 8.061, df = 27, P < 0.001
+```
+
+
+
+
+
+\newpage
+# Local - Nonlocal~Rural~ Local Adaptation Correlations
+
+## Ambient N
+
+```{r Local - Nonlocal_Rural Correlations: Ambient N, echo = TRUE, results = "hide"}
+## Filter data by Ambient N treatment
+rural.ambient.N.local.adaptation.correlation.data <- rural.local.adaptation.correlation.data %>%
+  filter(Nitrogen == "Ambient_N")
+
+## Aboveground biomass and belowground biomass
+cor.test(
+  rural.ambient.N.local.adaptation.correlation.data$AG_Biomass_LA_Rural,
+  rural.ambient.N.local.adaptation.correlation.data$BG_Biomass_LA_Rural,
+  method = "pearson",
+  alternative = "two.sided"
+)
+# r = 0.792 [0.604, 0.896]
+# t = 6.864, df = 28, P < 0.001
+
+## Aboveground biomass and nodule density
+cor.test(
+  rural.ambient.N.local.adaptation.correlation.data$AG_Biomass_LA_Rural,
+  rural.ambient.N.local.adaptation.correlation.data$Nod_Density_LA_Rural,
+  method = "pearson",
+  alternative = "two.sided"
+)
+# r = -0.095 [-0.440, 0.274]
+# t = -0.505, df = 28, P = 0.618
+
+## Aboveground biomass and fixing nodule density
+cor.test(
+  rural.ambient.N.local.adaptation.correlation.data$AG_Biomass_LA_Rural,
+  rural.ambient.N.local.adaptation.correlation.data$Fix_Nod_Density_LA_Rural,
+  method = "pearson",
+  alternative = "two.sided"
+)
+# r = 0.188 [-0.185, 0.513]
+# t = 1.0123, df = 28, P = 0.320
+
+## Belowground biomass and nodule density
+cor.test(
+  rural.ambient.N.local.adaptation.correlation.data$BG_Biomass_LA_Rural,
+  rural.ambient.N.local.adaptation.correlation.data$Nod_Density_LA_Rural,
+  method = "pearson",
+  alternative = "two.sided"
+)
+# r = -0.214 [-0.533, 0.159]
+# t = -1.159, df = 28, P = 0.256
+
+## Belowground biomass and fixing nodule density
+cor.test(
+  rural.ambient.N.local.adaptation.correlation.data$BG_Biomass_LA_Rural,
+  rural.ambient.N.local.adaptation.correlation.data$Fix_Nod_Density_LA_Rural,
+  method = "pearson",
+  alternative = "two.sided"
+)
+# r = -0.031 [-0.387, 0.333]
+# t = -0.166, df = 28, P = 0.870
+
+## Nodule density and fixing nodule density
+cor.test(
+  rural.ambient.N.local.adaptation.correlation.data$Nod_Density_LA_Rural,
+  rural.ambient.N.local.adaptation.correlation.data$Fix_Nod_Density_LA_Rural,
+  method = "pearson",
+  alternative = "two.sided"
+)
+# r = 0.688 [0.436, 0.840]
+# t = 5.023, df = 28, P < 0.001
+```
+
+
+
+\newpage
+## N Addition
+
+```{r Local - Nonlocal_Rural Correlations: N Addition, echo = TRUE, results = "hide"}
+## Filter data by N Addition treatment
+rural.N.addition.local.adaptation.correlation.data <- rural.local.adaptation.correlation.data %>%
+  filter(Nitrogen == "N_Addition")
+
+## Aboveground biomass and belowground biomass
+cor.test(
+  rural.N.addition.local.adaptation.correlation.data$AG_Biomass_LA_Rural,
+  rural.N.addition.local.adaptation.correlation.data$BG_Biomass_LA_Rural,
+  method = "pearson",
+  alternative = "two.sided"
+)
+# r = 0.792 [0.599, 0.898]
+# t = 6.731, df = 27, P < 0.001
+
+## Aboveground biomass and nodule density
+cor.test(
+  rural.N.addition.local.adaptation.correlation.data$AG_Biomass_LA_Rural,
+  rural.N.addition.local.adaptation.correlation.data$Nod_Density_LA_Rural,
+  method = "pearson",
+  alternative = "two.sided"
+)
+# r = 0.396 [0.034, 0.666]
+# t = 2.238, df = 27, P = 0.034
+
+## Aboveground biomass and fixing nodule density
+cor.test(
+  rural.N.addition.local.adaptation.correlation.data$AG_Biomass_LA_Rural,
+  rural.N.addition.local.adaptation.correlation.data$Fix_Nod_Density_LA_Rural,
+  method = "pearson",
+  alternative = "two.sided"
+)
+# r = 0.424 [0.069, 0.684]
+# t = 2.436, df = 27, P = 0.022
+
+## Belowground biomass and nodule density
+cor.test(
+  rural.N.addition.local.adaptation.correlation.data$BG_Biomass_LA_Rural,
+  rural.N.addition.local.adaptation.correlation.data$Nod_Density_LA_Rural,
+  method = "pearson",
+  alternative = "two.sided"
+)
+# r = 0.305 [-0.069, 0.604]
+# t = 1.665, df = 27, P = 0.108
+
+## Belowground biomass and fixing nodule density
+cor.test(
+  rural.N.addition.local.adaptation.correlation.data$BG_Biomass_LA_Rural,
+  rural.N.addition.local.adaptation.correlation.data$Fix_Nod_Density_LA_Rural,
+  method = "pearson",
+  alternative = "two.sided"
+)
+# r = 0.399 [0.038, 0.668]
+# t = 2.261, df = 27, P = 0.032
+
+## Nodule density and fixing nodule density
+cor.test(
+  rural.N.addition.local.adaptation.correlation.data$Nod_Density_LA_Rural,
+  rural.N.addition.local.adaptation.correlation.data$Fix_Nod_Density_LA_Rural,
+  method = "pearson",
+  alternative = "two.sided"
+)
+# r = 0.819 [0.647, 0.912]
+# t = 7.429, df = 27, P < 0.001
+```
+
+
+
+
+
+\newpage
+# Local - Nonlocal~Urban~ Local Adaptation Correlations
+
+## Ambient N
+
+```{r Local - Nonlocal_Urban Correlations: Ambient N, echo = TRUE, results = "hide"}
+## Filter data by Ambient N treatment
+urban.ambient.N.local.adaptation.correlation.data <- urban.local.adaptation.correlation.data %>%
+  filter(Nitrogen == "Ambient_N")
+
+## Aboveground biomass and belowground biomass
+cor.test(
+  urban.ambient.N.local.adaptation.correlation.data$AG_Biomass_LA_Urban,
+  urban.ambient.N.local.adaptation.correlation.data$BG_Biomass_LA_Urban,
+  method = "pearson",
+  alternative = "two.sided"
+)
+# r = 0.947 [0.890, 0.975]
+# t = 15.563, df = 28, P < 0.001
+
+## Aboveground biomass and nodule density
+cor.test(
+  urban.ambient.N.local.adaptation.correlation.data$AG_Biomass_LA_Urban,
+  urban.ambient.N.local.adaptation.correlation.data$Nod_Density_LA_Urban,
+  method = "pearson",
+  alternative = "two.sided"
+)
+# r = -0.087 [-0.434, 0.282]
+# t = -0.463, df = 28, P = 0.647
+
+## Aboveground biomass and fixing nodule density
+cor.test(
+  urban.ambient.N.local.adaptation.correlation.data$AG_Biomass_LA_Urban,
+  urban.ambient.N.local.adaptation.correlation.data$Fix_Nod_Density_LA_Urban,
+  method = "pearson",
+  alternative = "two.sided"
+)
+# r = 0.158 [-0.214, 0.491]
+# t = 0.849, df = 28, P = 0.403
+
+## Belowground biomass and nodule density
+cor.test(
+  urban.ambient.N.local.adaptation.correlation.data$BG_Biomass_LA_Urban,
+  urban.ambient.N.local.adaptation.correlation.data$Nod_Density_LA_Urban,
+  method = "pearson",
+  alternative = "two.sided"
+)
+# r = -0.197 [-0.520, 0.176]
+# t = -1.064, df = 28, P = 0.296
+
+## Belowground biomass and fixing nodule density
+cor.test(
+  urban.ambient.N.local.adaptation.correlation.data$BG_Biomass_LA_Urban,
+  urban.ambient.N.local.adaptation.correlation.data$Fix_Nod_Density_LA_Urban,
+  method = "pearson",
+  alternative = "two.sided"
+)
+# r = 0.095 [-0.275, 0.440]
+# t = 0.503, df = 28, P = 0.619
+
+## Nodule density and fixing nodule density
+cor.test(
+  urban.ambient.N.local.adaptation.correlation.data$Nod_Density_LA_Urban,
+  urban.ambient.N.local.adaptation.correlation.data$Fix_Nod_Density_LA_Urban,
+  method = "pearson",
+  alternative = "two.sided"
+)
+# r = 0.757 [0.546, 0.878]
+# t = 6.133, df = 28, P < 0.001
+```
+
+
+
+\newpage
+## N Addition
+
+```{r Local - Nonlocal_Urban Correlations: N Addition, echo = TRUE, results = "hide"}
+## Filter data by N Addition treatment
+urban.N.addition.local.adaptation.correlation.data <- urban.local.adaptation.correlation.data %>%
+  filter(Nitrogen == "N_Addition")
+
+## Aboveground biomass and belowground biomass
+cor.test(
+  urban.N.addition.local.adaptation.correlation.data$AG_Biomass_LA_Urban,
+  urban.N.addition.local.adaptation.correlation.data$BG_Biomass_LA_Urban,
+  method = "pearson",
+  alternative = "two.sided"
+)
+# r = 0.644 [0.356, 0.820]
+# t = 4.289, df = 26, P < 0.001
+
+## Aboveground biomass and nodule density
+cor.test(
+  urban.N.addition.local.adaptation.correlation.data$AG_Biomass_LA_Urban,
+  urban.N.addition.local.adaptation.correlation.data$Nod_Density_LA_Urban,
+  method = "pearson",
+  alternative = "two.sided"
+)
+# r = 0.301 [-0.081, 0.606]
+# t = 1.611, df = 26, P = 0.120
+
+## Aboveground biomass and fixing nodule density
+cor.test(
+  urban.N.addition.local.adaptation.correlation.data$AG_Biomass_LA_Urban,
+  urban.N.addition.local.adaptation.correlation.data$Fix_Nod_Density_LA_Urban,
+  method = "pearson",
+  alternative = "two.sided"
+)
+# r = 0.110 [-0.275, 0.464]
+# t = 0.563, df = 26, P = 0.578
+
+## Belowground biomass and nodule density
+cor.test(
+  urban.N.addition.local.adaptation.correlation.data$BG_Biomass_LA_Urban,
+  urban.N.addition.local.adaptation.correlation.data$Nod_Density_LA_Urban,
+  method = "pearson",
+  alternative = "two.sided"
+)
+# r = 0.052 [-0.327, 0.417]
+# t = 0.267, df = 26, P = 0.792
+
+## Belowground biomass and fixing nodule density
+cor.test(
+  urban.N.addition.local.adaptation.correlation.data$BG_Biomass_LA_Urban,
+  urban.N.addition.local.adaptation.correlation.data$Fix_Nod_Density_LA_Urban,
+  method = "pearson",
+  alternative = "two.sided"
+)
+# r = -0.193 [-0.528, 0.194]
+# t = 1.004, df = 26, P = 0.325
+
+## Nodule density and fixing nodule density
+cor.test(
+  urban.N.addition.local.adaptation.correlation.data$Nod_Density_LA_Urban,
+  urban.N.addition.local.adaptation.correlation.data$Fix_Nod_Density_LA_Urban,
+  method = "pearson",
+  alternative = "two.sided"
+)
+# r = 0.819 [0.641, 0.913]
+# t = 7.265, df = 26, P < 0.001
+```
+
+
+
+
+
+```{r Save Final Workspace, include = FALSE}
+save.image("data_analysis/5-local_adaptation_index_correlations/local_adaptation_index_correlations-workspace.RData")
+```
+
+
+
+
+
+
+
+
+
+
+\newpage
+# R Session Information
+
+```{r R Packages, echo = FALSE}
+df_session_packages <- devtools::session_info()$packages %>%
+  as.data.frame(.) %>%
+  filter(attached == TRUE) %>%
+  dplyr::select(loadedversion, date) %>%
+  rownames_to_column()
+
+colnames(df_session_packages) <- c("Package", "Loaded Version", "Date")
+
+kable(
+  df_session_packages,
+  booktabs = TRUE,
+  caption = "Packages required for data management and analysis."
+) %>%
+  kable_styling(
+    full_width = FALSE,
+    latex_options = c("HOLD_position", "striped")
+  )
+```

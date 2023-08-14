@@ -1,0 +1,238 @@
+---
+title: "TRhizo-localAdaptation"
+subtitle: "Urbanization Metrics"
+author: "David Murray-Stoker"
+output:
+  pdf_document:
+    toc: true
+    toc_depth: 4
+    fig_caption: yes
+    latex_engine: xelatex
+always_allow_html: true
+---
+
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+options(knitr.graphics.error = FALSE)
+knitr::opts_chunk$set(results = "hold", fig.pos = "H", fig.align = "center", out.width = "92.5%")
+kableExtra::usepackage_latex("float")
+```
+
+```{r Load Packages for R Markdown, include = FALSE}
+library(kableExtra)
+library(knitr)
+```
+
+
+
+
+
+\newpage
+# Load Packages & Data
+
+```{r Load Packages & Data, echo = TRUE, results = "hide"}
+## Load the tidyverse
+library(tidyverse)
+
+## Packages for analysis
+library(geosphere)
+library(raster)
+
+## Read in data
+site.data <- read_csv(
+  "data/localAdaptation-site_information.csv",
+  col_types = c("fnn"),
+  show_col_types = FALSE
+)
+```
+
+
+
+\newpage
+# Distance from the Urban Center
+
+```{r Distance from the Urban center, echo = TRUE}
+distance.data <- data.frame("Distance" = numeric(length = 40))
+
+for (x in 1:40) {
+  site.from.UC <- distm(
+    x = site.data[x, c(3, 2)],
+    y = c(-79.383276, 43.651536),
+    fun = distGeo
+  )
+
+  site.from.UC.km <- site.from.UC / 1000
+
+  distance.data[x, ] <- site.from.UC.km
+}
+
+## Add a Population identifier to each row
+distance.data$Population <- site.data$Population
+
+## Set column structure
+distance.data$Population <- as_factor(distance.data$Population)
+```
+
+
+
+
+
+\newpage
+# Impervious Surface Cover
+
+```{r Calculate ISC Data, echo = TRUE}
+## Set the path to the ISC raster
+ISC_raster_path <- "~/Downloads/CAN_gmis_impervious_surface_percentage_geographic_30m.tif"
+# Change to the directory of the raster file
+
+## Set the function to extract ISC values
+calculate_ISC <- function(df, raster_path, buffer = 250) {
+  # Load in raster for country
+  raster <- raster::raster(raster_path)
+
+  # Create spatial point dataframe from latitude and longitude
+  spdf <- sp::SpatialPointsDataFrame(
+    coords = df %>%
+      dplyr::select(Longitude, Latitude),
+    proj4string = raster@crs,
+    data = df
+  )
+
+  # Calculate ISC data for population
+  ISC_data <- raster::extract(x = raster, y = spdf, method = "simple", buffer = buffer)
+  ISC_data <- ifelse(is.na(ISC_data), 255, ISC_data) # Missing data needs to be 255
+
+  # Take mean ISC across all cells included within buffer
+  ISC_data_mod <- ISC_data %>%
+    # Convert ISC values of 200 to 0, as per documentation
+    # Convert ISC values of 255 to missing
+    map(., function(x) {
+      case_when(
+        x == 200 ~ 0,
+        x == 255 ~ NA_real_,
+        TRUE ~ x
+      )
+    }) %>%
+    map(., mean, na.rm = TRUE) %>% # Ignore cells with missing ISC values when calculating mean
+    unlist()
+
+  # Add column with ISC values
+  df_out <- df %>%
+    mutate(
+      Mean_ISC = ISC_data_mod,
+      Mean_ISC = ifelse(Mean_ISC == 255, NA, Mean_ISC)
+    )
+
+  # Reorganize the data
+  df_out <- df_out %>%
+    dplyr::select(Population, Mean_ISC)
+
+  return(df_out)
+}
+
+## Calculate ISC data in a dataframe
+ISC.data <- calculate_ISC(df = site.data, raster_path = ISC_raster_path) %>%
+  as_tibble()
+```
+
+
+
+
+
+\newpage
+# Human Influence Index
+
+```{r Calculate HII Data, echo = TRUE}
+## Set the path to the HII raster
+HII_raster_path <- "~/Downloads/HII_raster/hii_v2geo/w001001.adf"
+# Change to the directory of the raster file
+
+## Set the function to extract HII values
+calculate_HII <- function(df, raster_path) {
+  # Load in the raster
+  raster <- raster::raster(raster_path)
+
+  # Create spatial point dataframe from latitude and longitude
+  spdf <- sp::SpatialPointsDataFrame(
+    coords = df %>%
+      dplyr::select(Longitude, Latitude),
+    proj4string = raster@crs,
+    data = df
+  )
+
+  # Calculate HII data for each population
+  HII_data <- raster::extract(x = raster, y = spdf, method = "simple")
+
+  # Add column with HII values
+  df_out <- df %>%
+    mutate(
+      Human_Influence_Index = HII_data,
+      Human_Influence_Index = ifelse(Human_Influence_Index == 255, NA, Human_Influence_Index)
+    )
+
+  # Reorganize the data
+  df_out <- df_out %>%
+    dplyr::select(Population, Human_Influence_Index)
+
+  return(df_out)
+}
+
+## Calculate HII data in a dataframe
+HII.data <- calculate_HII(df = site.data, raster_path = HII_raster_path) %>%
+  as_tibble()
+```
+
+
+
+
+
+\newpage
+# Data Management
+
+```{r Data Management, echo = TRUE}
+## Full urbanization data
+full.urbanization.data <- site.data %>%
+  full_join(distance.data, by = "Population") %>%
+  full_join(HII.data, by = "Population") %>%
+  full_join(ISC.data, by = "Population")
+```
+
+\vspace{10pt}
+
+```{r Export urbanization Data, echo = TRUE}
+## Export full urbanization data
+write_rds(full.urbanization.data, file = "data/full_urbanization_data.rds")
+```
+
+
+
+
+
+
+
+
+
+
+\newpage
+# R Session Information
+
+```{r R Packages, echo = FALSE}
+df_session_packages <- devtools::session_info()$packages %>%
+  as.data.frame(.) %>%
+  filter(attached == TRUE) %>%
+  dplyr::select(loadedversion, date) %>%
+  rownames_to_column()
+
+colnames(df_session_packages) <- c("Package", "Loaded Version", "Date")
+
+kable(
+  df_session_packages,
+  booktabs = TRUE,
+  caption = "Packages required for data management and analysis."
+) %>%
+  kable_styling(
+    full_width = FALSE,
+    latex_options = c("HOLD_position", "striped")
+  )
+```

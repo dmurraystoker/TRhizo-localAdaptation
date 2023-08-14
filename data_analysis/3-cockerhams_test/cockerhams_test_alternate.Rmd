@@ -1,0 +1,815 @@
+---
+title: "TRhizo-localAdaptation"
+subtitle: "Cockerham's Test (Alternate)"
+author: "David Murray-Stoker"
+output:
+  pdf_document:
+    toc: true
+    toc_depth: 4
+    fig_caption: yes
+    latex_engine: xelatex
+always_allow_html: true
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+knitr::opts_chunk$set(results = "hold", fig.pos = "H", fig.align = "center", out.width = "92.5%")
+options(knitr.graphics.error = FALSE)
+kableExtra::usepackage_latex("float")
+```
+
+```{r Load Packages for R Markdown, include = FALSE}
+library(kableExtra)
+library(knitr)
+```
+
+
+
+
+
+\newpage
+# Load Packages & Data
+
+```{r Load Packages & Data, echo = TRUE, results = "hide"}
+## Load the tidyverse
+library(tidyverse)
+
+## Packages for analysis
+library(broom)
+library(lme4)
+library(lmerTest)
+
+## Read in data
+biomass.data <- read_rds(file = "data/cleaned_biomass_data.rds")
+nodule.data <- read_rds(file = "data/cleaned_nodule_data.rds")
+```
+
+
+
+
+
+\newpage
+# Quantify Genetic Variation
+
+## Data Management
+
+```{r Data Management for Quantifying Genetic Variation, echo = TRUE}
+## Aboveground biomass data
+# Local | Ambient N
+aboveground.biomass.local.ambient.N.data <- biomass.data %>%
+  filter(Nitrogen == "Ambient_N") %>%
+  select(Population, Microbiome, Block, Aboveground_Biomass) %>%
+  filter(Microbiome == "Local")
+# Rural | Ambient N
+aboveground.biomass.rural.ambient.N.data <- biomass.data %>%
+  filter(Nitrogen == "Ambient_N") %>%
+  select(Population, Microbiome, Block, Aboveground_Biomass) %>%
+  filter(Microbiome == "Nonlocal_R")
+# Urban | Ambient N
+aboveground.biomass.urban.ambient.N.data <- biomass.data %>%
+  filter(Nitrogen == "Ambient_N") %>%
+  select(Population, Microbiome, Block, Aboveground_Biomass) %>%
+  filter(Microbiome == "Nonlocal_U")
+
+# Local | N Addition
+aboveground.biomass.local.N.addition.data <- biomass.data %>%
+  filter(Nitrogen == "N_Addition") %>%
+  select(Population, Microbiome, Block, Aboveground_Biomass) %>%
+  filter(Microbiome == "Local")
+# Rural | N Addition
+aboveground.biomass.rural.N.addition.data <- biomass.data %>%
+  filter(Nitrogen == "N_Addition") %>%
+  select(Population, Microbiome, Block, Aboveground_Biomass) %>%
+  filter(Microbiome == "Nonlocal_R")
+# Urban | N Addition
+aboveground.biomass.urban.N.addition.data <- biomass.data %>%
+  filter(Nitrogen == "N_Addition") %>%
+  select(Population, Microbiome, Block, Aboveground_Biomass) %>%
+  filter(Microbiome == "Nonlocal_U")
+
+
+## Nodule density
+# Local | Ambient N
+nodule.density.local.ambient.N.data <- nodule.data %>%
+  filter(Nitrogen == "Ambient_N") %>%
+  select(Population, Microbiome, Block, Nodule_Density) %>%
+  filter(Microbiome == "Local")
+# Rural | Ambient N
+nodule.density.rural.ambient.N.data <- nodule.data %>%
+  filter(Nitrogen == "Ambient_N") %>%
+  select(Population, Microbiome, Block, Nodule_Density) %>%
+  filter(Microbiome == "Nonlocal_R")
+# Urban | Ambient N
+nodule.density.urban.ambient.N.data <- nodule.data %>%
+  filter(Nitrogen == "Ambient_N") %>%
+  select(Population, Microbiome, Block, Nodule_Density) %>%
+  filter(Microbiome == "Nonlocal_U")
+
+# Local | N Addition
+nodule.density.local.N.addition.data <- nodule.data %>%
+  filter(Nitrogen == "N_Addition") %>%
+  select(Population, Microbiome, Block, Nodule_Density) %>%
+  filter(Microbiome == "Local")
+# Rural | N Addition
+nodule.density.rural.N.addition.data <- nodule.data %>%
+  filter(Nitrogen == "N_Addition") %>%
+  select(Population, Microbiome, Block, Nodule_Density) %>%
+  filter(Microbiome == "Nonlocal_R")
+# Urban | N Addition
+nodule.density.urban.N.addition.data <- nodule.data %>%
+  filter(Nitrogen == "N_Addition") %>%
+  select(Population, Microbiome, Block, Nodule_Density) %>%
+  filter(Microbiome == "Nonlocal_U")
+
+
+## Fixing nodule density data
+# Local
+fixing.nodule.density.local.data <- nodule.data %>%
+  select(Population, Microbiome, Block, Fixing_Nodule_Density) %>%
+  filter(Microbiome == "Local")
+# Rural
+fixing.nodule.density.rural.data <- nodule.data %>%
+  select(Population, Microbiome, Block, Fixing_Nodule_Density) %>%
+  filter(Microbiome == "Nonlocal_R")
+# Urban
+fixing.nodule.density.urban.data <- nodule.data %>%
+  select(Population, Microbiome, Block, Fixing_Nodule_Density) %>%
+  filter(Microbiome == "Nonlocal_U")
+```
+
+
+\newpage
+## Aboveground Biomass
+
+```{r Quantify Genetic Variation: Aboveground Biomass, echo = TRUE}
+## Aboveground biomass
+# Ambient N | Local
+aboveground.biomass.local.ambient.N.Vg.LMM <- lmer(
+  sqrt(Aboveground_Biomass) ~ Block + (1 | Population),
+  data = aboveground.biomass.local.ambient.N.data,
+  REML = TRUE
+)
+
+aboveground.biomass.local.ambient.N.Vg.df <- data.frame(
+  VarCorr(aboveground.biomass.local.ambient.N.Vg.LMM)
+) %>%
+  filter(grp == "Population") %>%
+  add_column(Microbiome = "Local") %>%
+  add_column(Nitrogen = "Ambient_N")
+
+# Ambient N | Rural
+aboveground.biomass.rural.ambient.N.Vg.LMM <- lmer(
+  sqrt(Aboveground_Biomass) ~ Block + (1 | Population),
+  data = aboveground.biomass.rural.ambient.N.data,
+  REML = TRUE
+)
+
+aboveground.biomass.rural.ambient.N.Vg.df <- data.frame(
+  VarCorr(aboveground.biomass.rural.ambient.N.Vg.LMM)
+) %>%
+  filter(grp == "Population") %>%
+  add_column(Microbiome = "Rural") %>%
+  add_column(Nitrogen = "Ambient_N")
+
+# Ambient N | Urban
+aboveground.biomass.urban.ambient.N.Vg.LMM <- lmer(
+  sqrt(Aboveground_Biomass) ~ Block + (1 | Population),
+  data = aboveground.biomass.urban.ambient.N.data,
+  REML = TRUE
+)
+
+aboveground.biomass.urban.ambient.N.Vg.df <- data.frame(
+  VarCorr(aboveground.biomass.urban.ambient.N.Vg.LMM)
+) %>%
+  filter(grp == "Population") %>%
+  add_column(Microbiome = "Urban") %>%
+  add_column(Nitrogen = "Ambient_N")
+
+
+# N Addition | Local
+aboveground.biomass.local.N.addition.Vg.LMM <- lmer(
+  sqrt(Aboveground_Biomass) ~ Block + (1 | Population),
+  data = aboveground.biomass.local.N.addition.data,
+  REML = TRUE
+)
+
+aboveground.biomass.local.N.addition.Vg.df <- data.frame(
+  VarCorr(aboveground.biomass.local.N.addition.Vg.LMM)
+) %>%
+  filter(grp == "Population") %>%
+  add_column(Microbiome = "Local") %>%
+  add_column(Nitrogen = "N_Addition")
+
+# N Addition | Rural
+aboveground.biomass.rural.N.addition.Vg.LMM <- lmer(
+  sqrt(Aboveground_Biomass) ~ Block + (1 | Population),
+  data = aboveground.biomass.rural.N.addition.data,
+  REML = TRUE
+)
+
+aboveground.biomass.rural.N.addition.Vg.df <- data.frame(
+  VarCorr(aboveground.biomass.rural.N.addition.Vg.LMM)
+) %>%
+  filter(grp == "Population") %>%
+  add_column(Microbiome = "Rural") %>%
+  add_column(Nitrogen = "N_Addition")
+
+# N Addition | Urban
+aboveground.biomass.urban.N.addition.Vg.LMM <- lmer(
+  sqrt(Aboveground_Biomass) ~ Block + (1 | Population),
+  data = aboveground.biomass.urban.N.addition.data,
+  REML = TRUE
+)
+
+aboveground.biomass.urban.N.addition.Vg.df <- data.frame(
+  VarCorr(aboveground.biomass.urban.N.addition.Vg.LMM)
+) %>%
+  filter(grp == "Population") %>%
+  add_column(Microbiome = "Urban") %>%
+  add_column(Nitrogen = "N_Addition")
+```
+
+
+\newpage
+## Nodule Density
+
+```{r Quantify Genetic Variation: Nodule Density, echo = TRUE}
+## Nodule density
+# Ambient N | Local
+nodule.density.local.ambient.N.Vg.LMM <- lmer(
+  log(Nodule_Density + 1) ~ Block + (1 | Population),
+  data = nodule.density.local.ambient.N.data,
+  REML = TRUE
+)
+
+nodule.density.local.ambient.N.Vg.df <- data.frame(
+  VarCorr(nodule.density.local.ambient.N.Vg.LMM)
+) %>%
+  filter(grp == "Population") %>%
+  add_column(Microbiome = "Local") %>%
+  add_column(Nitrogen = "Ambient_N")
+
+# Ambient N | Rural
+nodule.density.rural.ambient.N.Vg.LMM <- lmer(
+  log(Nodule_Density + 1) ~ Block + (1 | Population),
+  data = nodule.density.rural.ambient.N.data,
+  REML = TRUE
+)
+
+nodule.density.rural.ambient.N.Vg.df <- data.frame(
+  VarCorr(nodule.density.rural.ambient.N.Vg.LMM)
+) %>%
+  filter(grp == "Population") %>%
+  add_column(Microbiome = "Rural") %>%
+  add_column(Nitrogen = "Ambient_N")
+
+# Ambient N | Urban
+nodule.density.urban.ambient.N.Vg.LMM <- lmer(
+  log(Nodule_Density + 1) ~ Block + (1 | Population),
+  data = nodule.density.urban.ambient.N.data,
+  REML = TRUE
+)
+
+nodule.density.urban.ambient.N.Vg.df <- data.frame(
+  VarCorr(nodule.density.urban.ambient.N.Vg.LMM)
+) %>%
+  filter(grp == "Population") %>%
+  add_column(Microbiome = "Urban") %>%
+  add_column(Nitrogen = "Ambient_N")
+
+
+# N Addition | Local
+nodule.density.local.N.addition.Vg.LMM <- lmer(
+  log(Nodule_Density + 1) ~ Block + (1 | Population),
+  data = nodule.density.local.N.addition.data,
+  REML = TRUE
+)
+
+nodule.density.local.N.addition.Vg.df <- data.frame(
+  VarCorr(nodule.density.local.N.addition.Vg.LMM)
+) %>%
+  filter(grp == "Population") %>%
+  add_column(Microbiome = "Local") %>%
+  add_column(Nitrogen = "N_Addition")
+
+# N Addition | Rural
+nodule.density.rural.N.addition.Vg.LMM <- lmer(
+  log(Nodule_Density + 1) ~ Block + (1 | Population),
+  data = nodule.density.rural.N.addition.data,
+  REML = TRUE
+)
+
+nodule.density.rural.N.addition.Vg.df <- data.frame(
+  VarCorr(nodule.density.rural.N.addition.Vg.LMM)
+) %>%
+  filter(grp == "Population") %>%
+  add_column(Microbiome = "Rural") %>%
+  add_column(Nitrogen = "N_Addition")
+
+# N Addition | Urban
+nodule.density.urban.N.addition.Vg.LMM <- lmer(
+  log(Nodule_Density + 1) ~ Block + (1 | Population),
+  data = nodule.density.urban.N.addition.data,
+  REML = TRUE
+)
+
+nodule.density.urban.N.addition.Vg.df <- data.frame(
+  VarCorr(nodule.density.urban.N.addition.Vg.LMM)
+) %>%
+  filter(grp == "Population") %>%
+  add_column(Microbiome = "Urban") %>%
+  add_column(Nitrogen = "N_Addition")
+```
+
+
+\newpage
+## Fixing Nodule Density
+
+```{r Quantify Genetic Variation: Fixing Nodule Density, echo = TRUE}
+## Fixing nodule density
+# Local
+fixing.nodule.density.local.Vg.LMM <- lmer(
+  log(Fixing_Nodule_Density + 1) ~ Block + (1 | Population),
+  data = fixing.nodule.density.local.data,
+  REML = TRUE
+)
+
+fixing.nodule.density.local.Vg.df <- data.frame(VarCorr(fixing.nodule.density.local.Vg.LMM)) %>%
+  filter(grp == "Population") %>%
+  add_column(Microbiome = "Local") %>%
+  add_column(Nitrogen = "Combined")
+
+# Rural
+fixing.nodule.density.rural.Vg.LMM <- lmer(
+  log(Fixing_Nodule_Density + 1) ~ Block + (1 | Population),
+  data = fixing.nodule.density.rural.data,
+  REML = TRUE
+)
+
+fixing.nodule.density.rural.Vg.df <- data.frame(VarCorr(fixing.nodule.density.rural.Vg.LMM)) %>%
+  filter(grp == "Population") %>%
+  add_column(Microbiome = "Rural") %>%
+  add_column(Nitrogen = "Combined")
+
+# Urban
+fixing.nodule.density.urban.Vg.LMM <- lmer(
+  log(Fixing_Nodule_Density + 1) ~ Block + (1 | Population),
+  data = fixing.nodule.density.urban.data,
+  REML = TRUE
+)
+
+fixing.nodule.density.urban.Vg.df <- data.frame(VarCorr(fixing.nodule.density.urban.Vg.LMM)) %>%
+  filter(grp == "Population") %>%
+  add_column(Microbiome = "Urban") %>%
+  add_column(Nitrogen = "Combined")
+```
+
+
+
+
+\newpage
+## Export Genetic Variation Data
+
+```{r Export Vg Data, echo = TRUE}
+## Combine and export data for management in Excel in prep for Cockerham's test
+# Bind aboveground biomass data
+aboveground.biomass.combined.Vg.data <- bind_rows(
+  aboveground.biomass.local.ambient.N.Vg.df,
+  aboveground.biomass.rural.ambient.N.Vg.df,
+  aboveground.biomass.urban.ambient.N.Vg.df,
+  aboveground.biomass.local.N.addition.Vg.df,
+  aboveground.biomass.rural.N.addition.Vg.df,
+  aboveground.biomass.urban.N.addition.Vg.df
+)
+
+# Bind nodule density data
+nodule.density.combined.Vg.data <- bind_rows(
+  nodule.density.local.ambient.N.Vg.df,
+  nodule.density.rural.ambient.N.Vg.df,
+  nodule.density.urban.ambient.N.Vg.df,
+  nodule.density.local.N.addition.Vg.df,
+  nodule.density.rural.N.addition.Vg.df,
+  nodule.density.urban.N.addition.Vg.df
+)
+
+# Bind fixing nodule density data
+fixing.nodule.density.combined.Vg.data <- bind_rows(
+  fixing.nodule.density.local.Vg.df,
+  fixing.nodule.density.rural.Vg.df,
+  fixing.nodule.density.urban.Vg.df
+)
+
+## Bind all data together
+combined.Vg.data <- bind_rows(
+  aboveground.biomass.combined.Vg.data,
+  nodule.density.combined.Vg.data,
+  fixing.nodule.density.combined.Vg.data
+) %>%
+  add_column(Trait = c(
+    rep("Aboveground_Biomass", 6),
+    rep("Nodule_Density", 6),
+    rep("Fixing_Nodule_Density", 3)
+  )) %>%
+  select(Trait, Microbiome:Nitrogen, vcov) %>%
+  rename(Vg = vcov)
+
+## Export data to prepare for Cockerham's test
+write_csv(combined.Vg.data, file = "data/cockerham_data_uncleaned-alternate.csv")
+```
+
+
+
+
+
+
+
+
+
+
+\newpage
+# Genetic Correlations
+
+## Data Management
+
+
+```{r Genetic Correlations: Data Management, echo = TRUE}
+## Format data to calculate correlations
+full.data <- nodule.data %>%
+  full_join(
+    biomass.data %>% select(UID, Aboveground_Biomass),
+    by = c("UID")
+  ) %>%
+  select(
+    Population:Nitrogen, Aboveground_Biomass, Nodule_Density:Fixing_Nodule_Density
+  ) %>%
+  drop_na()
+
+## Local by Rural data
+local.by.rural.data <- full.data %>%
+  filter(Microbiome != "Nonlocal_U") %>%
+  group_by(Population, Microbiome) %>%
+  select(-c(Aboveground_Biomass, Nodule_Density)) %>%
+  summarise(
+    Fix_Nod_Density = mean(Fixing_Nodule_Density),
+    .groups = "keep"
+  ) %>%
+  ungroup() %>%
+  drop_na() %>%
+  pivot_wider(names_from = Microbiome, values_from = Fix_Nod_Density)
+
+## Local by Urban data
+local.by.urban.data <- full.data %>%
+  filter(Microbiome != "Nonlocal_R") %>%
+  group_by(Population, Microbiome) %>%
+  select(-c(Aboveground_Biomass, Nodule_Density)) %>%
+  summarise(
+    Fix_Nod_Density = mean(Fixing_Nodule_Density),
+    .groups = "keep"
+  ) %>%
+  ungroup() %>%
+  drop_na() %>%
+  pivot_wider(names_from = Microbiome, values_from = Fix_Nod_Density)
+
+## Rural by Urban data
+rural.by.urban.data <- full.data %>%
+  filter(Microbiome != "Local") %>%
+  group_by(Population, Microbiome) %>%
+  select(-c(Aboveground_Biomass, Nodule_Density)) %>%
+  summarise(
+    Fix_Nod_Density = mean(Fixing_Nodule_Density),
+    .groups = "keep"
+  ) %>%
+  ungroup() %>%
+  drop_na() %>%
+  pivot_wider(names_from = Microbiome, values_from = Fix_Nod_Density)
+
+## Aboveground biomass and nodule density data (N-treatment specific)
+# Local by Rural data
+local.by.rural.nitrogen.data <- full.data %>%
+  filter(Microbiome != "Nonlocal_U") %>%
+  group_by(Population, Microbiome, Nitrogen) %>%
+  summarise(
+  	AG_Biomass = mean(Aboveground_Biomass),
+    Nod_Density = mean(Nodule_Density),
+    .groups = "keep"
+  ) %>%
+  ungroup() %>%
+  pivot_wider(names_from = Microbiome:Nitrogen, values_from = AG_Biomass:Nod_Density) %>%
+  drop_na()
+
+# Local by Urban data
+local.by.urban.nitrogen.data <- full.data %>%
+  filter(Microbiome != "Nonlocal_R") %>%
+  group_by(Population, Microbiome, Nitrogen) %>%
+  summarise(
+  	AG_Biomass = mean(Aboveground_Biomass),
+    Nod_Density = mean(Nodule_Density),
+    .groups = "keep"
+  ) %>%
+  ungroup() %>%
+  pivot_wider(names_from = Microbiome:Nitrogen, values_from = AG_Biomass:Nod_Density) %>%
+  drop_na()
+
+# Rural by Urban data
+rural.by.urban.nitrogen.data <- full.data %>%
+  filter(Microbiome != "Local") %>%
+  group_by(Population, Microbiome, Nitrogen) %>%
+  summarise(
+  	AG_Biomass = mean(Aboveground_Biomass),
+    Nod_Density = mean(Nodule_Density),
+    .groups = "keep"
+  ) %>%
+  ungroup() %>%
+  pivot_wider(names_from = Microbiome:Nitrogen, values_from = AG_Biomass:Nod_Density) %>%
+  drop_na()
+```
+
+
+
+
+
+\newpage
+## Correlations
+
+### Fixing Nodule Density
+
+```{r Fixing Nodule Density: Local by Rural Correlations, echo = FALSE}
+kable(
+  cor(local.by.rural.data %>% select(-1), method = "pearson"),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Fitness correlations between local and nonlocal-rural for fixing nodule density."
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{10pt}
+
+```{r Fixing Nodule Density: Local by Urban Correlations, echo = FALSE}
+kable(
+  cor(local.by.urban.data %>% select(-1), method = "pearson"),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Fitness correlations between local and nonlocal-urban for fixing nodule density."
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{10pt}
+
+```{r Fixing Nodule Density: Rural by Urban Correlations, echo = FALSE}
+kable(
+  cor(rural.by.urban.data %>% select(-1), method = "pearson"),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Fitness correlations between nonlocal-rural and nonlocal-urban for fixing nodule density."
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+
+\newpage
+### Aboveground Biomass & Nodule Density
+
+```{r Aboveground Biomass & Nodule Density: Local by Rural Correlations, echo = FALSE}
+kable(
+  cor(local.by.rural.nitrogen.data %>% select(-1), method = "pearson"),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Fitness correlations between local and nonlocal-rural by nitrogen treatment for aboveground biomass and nodule density."
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped", "scale_down")) %>%
+	landscape()
+```
+
+\vspace{10pt}
+
+```{r Aboveground Biomass & Nodule Density: Local by Urban Correlations, echo = FALSE}
+kable(
+  cor(local.by.urban.nitrogen.data %>% select(-1), method = "pearson"),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Fitness correlations between local and nonlocal-urban by nitrogen treatment for aboveground biomass and nodule density."
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped", "scale_down")) %>%
+	landscape()
+```
+
+\vspace{10pt}
+
+```{r Aboveground Biomass & Nodule Density: Rural by Urban Correlations, echo = FALSE}
+kable(
+  cor(rural.by.urban.nitrogen.data %>% select(-1), method = "pearson"),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Fitness correlations between nonlocal-rural and nonlocal-urban by nitrogen treatment for aboveground biomass and nodule density."
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped", "scale_down")) %>%
+	landscape()
+```
+
+
+
+
+
+
+
+
+
+
+\newpage
+# Cockerham's Test
+
+```{r Load Cockerham Data, echo = TRUE}
+## Cockerham data
+cockerham.data <- read_csv(
+  "data/cockerham_data_cleaned-alternate.csv",
+  col_types = c("ffnnn"),
+  show_col_types = FALSE
+)
+```
+
+
+
+## Set Functions
+
+```{r Functions for Cockerhams Test, echo = TRUE}
+## Function for imperfect correlation (page 88, Cockerham 1963)
+imperfect_correlation <- function(Vg1, Vg2, Rg) {
+  out <- 2 * sqrt(Vg1) * sqrt(Vg2) * (1 - Rg)
+
+  return(out)
+}
+
+## Function for heterogeneous variances (page 88, Cockerham 1963)
+heterogeneous_variances <- function(Vg1, Vg2) {
+  out <- ((sqrt(Vg1) - sqrt(Vg2))^2)
+
+  return(out)
+}
+
+## Calculate imperfect correlation values for each row
+cockerham.data$Crossing <- sapply(1:nrow(cockerham.data), FUN = function(r) {
+  Vg1 <- cockerham.data$Vg1[r]
+  Vg2 <- cockerham.data$Vg2[r]
+  Rg <- cockerham.data$Rg[r]
+
+  crossing.value <- imperfect_correlation(Vg1, Vg2, Rg)
+
+  return(crossing.value)
+})
+
+## Calculate heterogeneous variance values for each row
+cockerham.data$Heterogeneous_Variances <- sapply(1:nrow(cockerham.data), FUN = function(r) {
+  Vg1 <- cockerham.data$Vg1[r]
+  Vg2 <- cockerham.data$Vg2[r]
+
+  heterogeneous.variance.value <- heterogeneous_variances(Vg1, Vg2)
+
+  return(heterogeneous.variance.value)
+})
+```
+
+
+
+
+
+\newpage
+## Calculations for Cockerham's Test
+
+### Aboveground Biomass
+
+```{r Cockerhams Test: Aboveground Biomass, echo = TRUE}
+## Group by trait and calculate sum of imperfect correlation values
+# Divide by number of environments*(number of environments - 1) as per Cockerham 1963
+aboveground.biomass.crossing <- cockerham.data %>%
+  filter(Trait == "Aboveground_Biomass") %>%
+  summarise(Crossing_Sum = sum(Crossing) / (6 * (6 - 1)))
+
+## Group by trait and calculate sum of heterogeneous variances values
+# Divide by number of environments*(number of environments - 1) as per Cockerham 1963
+aboveground.biomass.heterogeneous.variance <- cockerham.data %>%
+  filter(Trait == "Aboveground_Biomass") %>%
+  summarise(Hetero_Variance_Sum = sum(Heterogeneous_Variances) / (6 * (6 - 1)))
+
+## Make tibble for aboveground biomass calculation
+aboveground.biomass.cockerham.data <- tibble(
+  Trait = "Aboveground_Biomass",
+  aboveground.biomass.crossing,
+  aboveground.biomass.heterogeneous.variance
+) %>%
+  mutate(Total_Variance = Crossing_Sum + Hetero_Variance_Sum) %>%
+  mutate(Percent_Crossing = 100 * Crossing_Sum / Total_Variance)
+```
+
+
+\newpage
+### Nodule Density
+
+```{r Cockerhams Test: Nodule Density, echo = TRUE}
+## Group by trait and calculate sum of imperfect correlation values
+# Divide by number of environments*(number of environments - 1) as per Cockerham 1963
+nodule.density.crossing <- cockerham.data %>%
+  filter(Trait == "Nodule_Density") %>%
+  summarise(Crossing_Sum = sum(Crossing) / (6 * (6 - 1)))
+
+## Group by trait and calculate sum of heterogeneous variances values
+# Divide by number of environments*(number of environments - 1) as per Cockerham 1963
+nodule.density.heterogeneous.variance <- cockerham.data %>%
+  filter(Trait == "Nodule_Density") %>%
+  summarise(Hetero_Variance_Sum = sum(Heterogeneous_Variances) / (6 * (6 - 1)))
+
+## Make tibble for Nodule Density calculation
+nodule.density.cockerham.data <- tibble(
+  Trait = "Nodule_Density",
+  nodule.density.crossing,
+  nodule.density.heterogeneous.variance
+) %>%
+  mutate(Total_Variance = Crossing_Sum + Hetero_Variance_Sum) %>%
+  mutate(Percent_Crossing = 100 * Crossing_Sum / Total_Variance)
+```
+
+
+\newpage
+### Fixing Nodule Density
+
+```{r Cockerhams Test: Fixing Nodule Density, echo = TRUE}
+## Group by trait and calculate sum of imperfect correlation values
+# Divide by number of environments*(number of environments - 1) as per Cockerham 1963
+fixing.nodule.density.crossing <- cockerham.data %>%
+  filter(Trait == "Fixing_Nodule_Density") %>%
+  summarise(Crossing_Sum = sum(Crossing) / (3 * (3 - 1)))
+
+## Group by trait and calculate sum of heterogeneous variances values
+# Divide by number of environments*(number of environments - 1) as per Cockerham 1963
+fixing.nodule.density.heterogeneous.variance <- cockerham.data %>%
+  filter(Trait == "Fixing_Nodule_Density") %>%
+  summarise(Hetero_Variance_Sum = sum(Heterogeneous_Variances) / (3 * (3 - 1)))
+
+## Make tibble for Nodule Density calculation
+fixing.nodule.density.cockerham.data <- tibble(
+  Trait = "Fixing_Nodule_Density",
+  fixing.nodule.density.crossing,
+  fixing.nodule.density.heterogeneous.variance
+) %>%
+  mutate(Total_Variance = Crossing_Sum + Hetero_Variance_Sum) %>%
+  mutate(Percent_Crossing = 100 * Crossing_Sum / Total_Variance)
+```
+
+
+\newpage
+## Results of Cockerham's Tests
+
+```{r Table of Results for Cockerhams Test,echo = FALSE}
+kable(
+  bind_rows(
+    aboveground.biomass.cockerham.data,
+    nodule.density.cockerham.data,
+    fixing.nodule.density.cockerham.data
+  ),
+  booktabs = TRUE,
+  digits = 5,
+  caption = "Results of Cockerham's test for aboveground biomass, nodule density, and fixing nodule density."
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+
+
+
+
+```{r Save the Workspace, include = FALSE}
+save.image("data_analysis/3-cockerhams_test/cockerhams_test_alternate-workspace.RData")
+```
+
+
+
+
+
+
+
+
+
+
+\newpage
+# R Session Information
+
+```{r R Packages, echo = FALSE}
+df_session_packages <- devtools::session_info()$packages %>%
+  as.data.frame(.) %>%
+  filter(attached == TRUE) %>%
+  dplyr::select(loadedversion, date) %>%
+  rownames_to_column()
+
+colnames(df_session_packages) <- c("Package", "Loaded Version", "Date")
+
+kable(
+  df_session_packages,
+  booktabs = TRUE,
+  caption = "Packages required for data management and analysis."
+) %>%
+  kable_styling(
+    full_width = FALSE,
+    latex_options = c("HOLD_position", "striped")
+  )
+```
