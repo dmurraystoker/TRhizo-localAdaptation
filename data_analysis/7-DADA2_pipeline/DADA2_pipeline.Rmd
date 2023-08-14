@@ -1,0 +1,580 @@
+---
+title: "TRhizo-localAdaptation"
+subtitle: "DADA2 Pipeline"
+author: "David Murray-Stoker"
+output:
+  pdf_document:
+    toc: true
+    toc_depth: 4
+    fig_caption: yes
+    latex_engine: xelatex
+always_allow_html: true
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+knitr::opts_chunk$set(results = "hold", fig.pos = "H", fig.align = "center", out.width = "92.5%")
+options(knitr.graphics.error = FALSE)
+kableExtra::usepackage_latex("float")
+```
+
+```{r Load Packages for R Markdown, include = FALSE}
+library(kableExtra)
+library(knitr)
+```
+
+
+
+
+
+\newpage
+# Load Packages & Data
+
+```{r Load Packages & Data, echo = TRUE, results = "hide"}
+## Load the tidyverse
+library(tidyverse)
+
+## Packages for analyses
+library(dada2)
+
+## Load the workspace
+load("data_analysis/7-DADA2_pipeline/DADA2_pipeline-full_workspace.Rdata")
+```
+
+
+
+
+\newpage
+# DADA2 Pipeline
+
+## Root Sequences
+
+```{r Roots: Set File Path & Names, echo = TRUE, eval = FALSE}
+## Directory for fastq files
+root.fastq.path <- "localAdaptation_sequences/root"
+
+## Set forward and reverse reads
+root.forward.reads <- sort(
+  list.files(root.fastq.path, pattern = "_L001_R1_001.fastq", full.names = TRUE)
+)
+root.reverse.reads <- sort(
+  list.files(root.fastq.path, pattern = "_L001_R2_001.fastq", full.names = TRUE)
+)
+
+## Extract sample names
+root.sample.names <- sapply(strsplit(basename(root.forward.reads), "_"), `[`, 1)
+```
+
+\vspace{10pt}
+
+### Read Quality Profiles
+
+```{r Roots Quality Profiles: Forward Reads, echo = FALSE, fig.cap = "Quality profile plots for the forward reads. Forward reads have high quality scores (> 30) until approximately 225 bp, after which the sequence should be trimmed. The first 10 bp of the forward reads should also be trimmed."}
+## Examine quality profile plots for the forward reads
+plotQualityProfile(root.forward.reads[1:6])
+```
+
+\vspace{10pt}
+
+```{r Roots Quality Profiles: Reverse Reads, echo = FALSE, fig.cap = "Quality profile plots for the reverse reads. Reverse reads have high quality scores (> 30) until approximately 215 bp, after which the sequence should be trimmed. The first 10 bp of the reverse reads should also be trimmed."}
+## Examine quality profile plots for the reverse reads
+plotQualityProfile(root.reverse.reads[1:6])
+```
+
+
+\newpage
+### Filter & Trim Reads
+
+```{r Roots: Set Directory & Names for Filtered Reads, echo = TRUE, eval = FALSE}
+## Set directories for filtered forward and reverse reads
+root.filtered.forward.reads <- file.path(
+  root.fastq.path, "filtered", paste0(root.sample.names, "_F_filt.fastq.gz")
+)
+root.filtered.reverse.reads <- file.path(
+  root.fastq.path, "filtered", paste0(root.sample.names, "_R_filt.fastq.gz")
+)
+
+## Set names for filtered reads
+names(root.filtered.forward.reads) <- root.sample.names
+names(root.filtered.reverse.reads) <- root.sample.names
+```
+
+\vspace{10pt}
+
+```{r Roots: Filter Reads, echo = TRUE, eval = FALSE}
+## Filter reads using standard parameters for the DADA2 pipeline
+root.read.filtering <- filterAndTrim(
+  fwd = root.forward.reads,
+  filt = root.filtered.forward.reads,
+  rev = root.reverse.reads,
+  filt.rev = root.filtered.reverse.reads,
+  truncLen = c(225, 215),
+  trimLeft = 10,
+  trimRight = 10,
+  maxN = 0,
+  maxEE = c(2, 2),
+  truncQ = 2,
+  rm.phix = TRUE,
+  compress = TRUE,
+  multithread = TRUE
+)
+```
+
+
+\newpage
+### Learn the Error Rates
+
+```{r Roots: Learn Error Rates for Forward and Reverse Reads, echo = TRUE, eval = FALSE}
+## Learn error rate for froward reads
+root.forward.error.rate <- learnErrors(root.filtered.forward.reads, multithread = TRUE)
+
+## Learn error rate for reverse reads
+root.reverse.error.rate <- learnErrors(root.filtered.reverse.reads, multithread = TRUE)
+```
+
+\vspace{10pt}
+
+```{r Roots Plot Error Rates: Forward Reads, echo = FALSE, fig.cap = "Plots of forward read error rates for each possible transition. Points are observed rates for each consensus quality score. The black line shows the estimate error rates from the machine-learning algorithm, while the red line shows the error rates based on Q-scores. There is a good fit between black lines and observed points."}
+plotErrors(root.forward.error.rate, nominalQ = TRUE)
+```
+
+\vspace{10pt}
+
+```{r Roots Plot Error Rates: Reverse Reads, echo = FALSE, fig.cap = "Plots of reverse read error rates for each possible transition. Points are observed rates for each consensus quality score. The black line shows the estimate error rates from the machine-learning algorithm, while the red line shows the error rates based on Q-scores. There is a good fit between black lines and observed points."}
+plotErrors(root.reverse.error.rate, nominalQ = TRUE)
+```
+
+
+\newpage
+### Sample Inference with DADA2
+
+```{r Roots Sample Inference: Forward Reads, echo = TRUE, eval = FALSE}
+## Run the DADA algorithm on the forward reads with the learned error rate
+root.forward.DADA <- dada(
+  derep = root.filtered.forward.reads,
+  err = root.forward.error.rate,
+  multithread = TRUE
+)
+
+## Inspect the forward DADA object
+root.forward.DADA[[1]]
+# 471 sequence variants were inferred from 23172 input unique sequences
+```
+
+\vspace{10pt}
+
+```{r Roots Sample Inference: Reverse Reads, echo = TRUE, eval = FALSE}
+## Run the DADA algorithm on the reverse reads with the learned error rate
+root.reverse.DADA <- dada(
+  derep = root.filtered.reverse.reads,
+  err = root.reverse.error.rate,
+  multithread = TRUE
+)
+
+## Inspect the reverse DADA object
+root.reverse.DADA[[1]]
+# 691 sequence variants were inferred from 15971 input unique sequences
+```
+
+
+\newpage
+### Merge Paired Reads
+
+```{r Roots: Merge Paired Reads, echo = TRUE, eval = FALSE}
+## Merge forward and reverse reads to obtain the full, denoised sequences
+root.merged.sequences <- mergePairs(
+  dadaF = root.forward.DADA,
+  derepF = root.filtered.forward.reads,
+  dadaR = root.reverse.DADA,
+  derepR = root.filtered.reverse.reads,
+  verbose = TRUE
+)
+```
+
+\vspace{10pt}
+
+### Construct Sequence Table
+
+```{r Roots: Construct Sequence Table from Merged Paired Reads, echo = TRUE}
+## Create an Amplicon Sequence Variant (ASV) table from merged paired reads
+root.sequence.table <- makeSequenceTable(root.merged.sequences)
+```
+
+\vspace{10pt}
+
+### Remove Chimeras
+
+```{r Roots: Remove Chimeras from the ASV Table, echo = TRUE, results = "hide"}
+## Identify chimeric sequences using standard DADA2 parameters
+root.sequence.table.filtered.for.chimeras <- removeBimeraDenovo(
+  unqs = root.sequence.table,
+  method = "consensus",
+  multithread = TRUE,
+  verbose = TRUE
+)
+
+## Relative frequency of chimeras
+sum(root.sequence.table.filtered.for.chimeras / sum(root.sequence.table))
+# Chimeras account for approximately 33.4% of all sequences
+```
+
+
+\newpage
+### Track Reads through the DADA2 Pipeline
+
+```{r Roots: Track Reads, echo = TRUE, eval = FALSE}
+## Function to get unique reads
+get_N_uniques <- function(x) {
+  sum(getUniques(x))
+}
+
+## Determine the number of reads at each step
+root.read.tracking <- tibble(
+  root.read.filtering,
+  sapply(root.forward.DADA, get_N_uniques),
+  sapply(root.reverse.DADA, get_N_uniques),
+  sapply(root.merged.sequences, get_N_uniques),
+  rowSums(root.sequence.table.filtered.for.chimeras)
+)
+
+## Set column names
+colnames(root.read.tracking) <- c(
+  "Filtered", "Forward_Denoised", "Reverse_Denoised",
+  "Merged_Sequences", "ASVs_No_Chimeras"
+)
+
+## Set row names
+rownames(root.read.tracking) <- root.sample.names
+```
+
+\vspace{10pt}
+
+```{r Roots: Table of Tracked Sequences, echo = FALSE}
+kable(
+  root.read.tracking,
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Number of reads for each step through the bioinformatic pipeline for all root samples."
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+
+\newpage
+### Taxonomy Assignment
+
+```{r Roots: Assign Taxonomy Using the RDP Classifier, echo = TRUE, eval = FALSE}
+## Assign taxonomy using the RDP naive Bayesian classifier
+root.ASV.RDP.taxonomy.assignment <- assignTaxonomy(
+  seqs = root.sequence.table.filtered.for.chimeras,
+  refFasta = "rdp_train_set_18.fa.gz",
+  tryRC = TRUE,
+  taxLevels = c("Kingdom", "Phylum", "Class", "Order", "Family", "Genus"),
+  multithread = TRUE
+)
+```
+
+
+
+
+\newpage
+## Soil Sequences
+
+```{r Soil: Set File Path & Names, echo = TRUE, eval = FALSE}
+## Directory for fastq files
+soil.fastq.path <- "localAdaptation_sequences/soil"
+
+## Set forward and reverse reads
+soil.forward.reads <- sort(
+  list.files(soil.fastq.path, pattern = "_L001_R1_001.fastq", full.names = TRUE)
+)
+soil.reverse.reads <- sort(
+  list.files(soil.fastq.path, pattern = "_L001_R2_001.fastq", full.names = TRUE)
+)
+
+## Extract sample names
+soil.sample.names <- sapply(strsplit(basename(soil.forward.reads), "_"), `[`, 1)
+```
+
+\vspace{10pt}
+
+### Read Quality Profiles
+
+```{r Soil Quality Profiles: Forward Reads, echo = FALSE, fig.cap = "Quality profile plots for the forward reads. Forward reads have high quality scores (> 30) until approximately 250 bp, after which the sequence should be trimmed. The first 10 bp of the forward reads should also be trimmed."}
+## Examine quality profile plots for the forward reads
+plotQualityProfile(soil.forward.reads[1:6])
+```
+
+\vspace{10pt}
+
+```{r Soil Quality Profiles: Reverse Reads, echo = FALSE, fig.cap = "Quality profile plots for the reverse reads. Reverse reads have high quality scores (> 30) until approximately 215 bp, after which the sequence should be trimmed. The first 10 bp of the reverse reads should also be trimmed."}
+## Examine quality profile plots for the reverse reads
+plotQualityProfile(soil.reverse.reads[1:6])
+```
+
+
+\newpage
+### Filter & Trim Reads
+
+```{r Soil: Set Directory & Names for Filtered Reads, echo = TRUE, eval = FALSE}
+## Set directories for filtered forward and reverse reads
+soil.filtered.forward.reads <- file.path(
+  soil.fastq.path, "filtered", paste0(soil.sample.names, "_F_filt.fastq.gz")
+)
+soil.filtered.reverse.reads <- file.path(
+  soil.fastq.path, "filtered", paste0(soil.sample.names, "_R_filt.fastq.gz")
+)
+
+## Set names for filtered reads
+names(soil.filtered.forward.reads) <- soil.sample.names
+names(soil.filtered.reverse.reads) <- soil.sample.names
+```
+
+\vspace{10pt}
+
+```{r Soil: Filter Reads, echo = TRUE, eval = FALSE}
+## Filter reads using standard parameters for the DADA2 pipeline
+soil.read.filtering <- filterAndTrim(
+  fwd = soil.forward.reads,
+  filt = soil.filtered.forward.reads,
+  rev = soil.reverse.reads,
+  filt.rev = soil.filtered.reverse.reads,
+  truncLen = c(250, 215),
+  trimLeft = 10,
+  trimRight = 10,
+  maxN = 0,
+  maxEE = c(2, 2),
+  truncQ = 2,
+  rm.phix = TRUE,
+  compress = TRUE,
+  multithread = TRUE
+)
+```
+
+
+\newpage
+### Learn the Error Rates
+
+```{r Soil: Learn Error Rates for Forward and Reverse Reads, echo = TRUE, eval = FALSE}
+## Learn error rate for froward reads
+soil.forward.error.rate <- learnErrors(soil.filtered.forward.reads, multithread = TRUE)
+
+## Learn error rate for reverse reads
+soil.reverse.error.rate <- learnErrors(soil.filtered.reverse.reads, multithread = TRUE)
+```
+
+\vspace{10pt}
+
+```{r Soil Plot Error Rates: Forward Reads, echo = FALSE, fig.cap = "Plots of forward read error rates for each possible transition. Points are observed rates for each consensus quality score. The black line shows the estimate error rates from the machine-learning algorithm, while the red line shows the error rates based on Q-scores. There is a good fit between black lines and observed points."}
+plotErrors(soil.forward.error.rate, nominalQ = TRUE)
+```
+
+\vspace{10pt}
+
+```{r Soil Plot Error Rates: Reverse Reads, echo = FALSE, fig.cap = "Plots of reverse read error rates for each possible transition. Points are observed rates for each consensus quality score. The black line shows the estimate error rates from the machine-learning algorithm, while the red line shows the error rates based on Q-scores. There is a good fit between black lines and observed points."}
+plotErrors(soil.reverse.error.rate, nominalQ = TRUE)
+```
+
+
+\newpage
+### Sample Inference with DADA2
+
+```{r Soil Sample Inference: Forward Reads, echo = TRUE, eval = FALSE}
+## Run the DADA algorithm on the forward reads with the learned error rate
+soil.forward.DADA <- dada(
+  derep = soil.filtered.forward.reads,
+  err = soil.forward.error.rate,
+  multithread = TRUE
+)
+
+## Inspect the forward DADA object
+soil.forward.DADA[[1]]
+# 608 sequence variants were inferred from 52092 input unique sequences
+```
+
+\vspace{10pt}
+
+```{r Soil Sample Inference: Reverse Reads, echo = TRUE, eval = FALSE}
+## Run the DADA algorithm on the reverse reads with the learned error rate
+soil.reverse.DADA <- dada(
+  derep = soil.filtered.reverse.reads,
+  err = soil.reverse.error.rate,
+  multithread = TRUE
+)
+
+## Inspect the reverse DADA object
+soil.reverse.DADA[[1]]
+# 1379 sequence variants were inferred from 32376 input unique sequences
+```
+
+
+\newpage
+### Merge Paired Reads
+
+```{r Soil: Merge Paired Reads, echo = TRUE, eval = FALSE}
+## Merge forward and reverse reads to obtain the full, denoised sequences
+soil.merged.sequences <- mergePairs(
+  dadaF = soil.forward.DADA,
+  derepF = soil.filtered.forward.reads,
+  dadaR = soil.reverse.DADA,
+  derepR = soil.filtered.reverse.reads,
+  verbose = TRUE
+)
+```
+
+\vspace{10pt}
+
+### Construct Sequence Table
+
+```{r Soil: Construct Sequence Table from Merged Paired Reads, echo = TRUE}
+## Create an Amplicon Sequence Variant (ASV) table from merged paired reads
+soil.sequence.table <- makeSequenceTable(soil.merged.sequences)
+```
+
+\vspace{10pt}
+
+### Remove Chimeras
+
+```{r Soil: Remove Chimeras from the ASV Table, echo = TRUE, results = "hide"}
+## Identify chimeric sequences using standard DADA2 parameters
+soil.sequence.table.filtered.for.chimeras <- removeBimeraDenovo(
+  unqs = soil.sequence.table,
+  method = "consensus",
+  multithread = TRUE,
+  verbose = TRUE
+)
+
+## Relative frequency of chimeras
+sum(soil.sequence.table.filtered.for.chimeras / sum(soil.sequence.table))
+# Chimeras account for approximately 14.3% of all sequences
+```
+
+
+\newpage
+### Track Reads through the DADA2 Pipeline
+
+```{r Soil: Track Reads, echo = TRUE, eval = FALSE}
+## Function to get unique reads
+get_N_uniques <- function(x) {
+  sum(getUniques(x))
+}
+
+## Determine the number of reads at each step
+soil.read.tracking <- tibble(
+  soil.read.filtering,
+  sapply(soil.forward.DADA, get_N_uniques),
+  sapply(soil.reverse.DADA, get_N_uniques),
+  sapply(soil.merged.sequences, get_N_uniques),
+  rowSums(soil.sequence.table.filtered.for.chimeras)
+)
+
+## Set column names
+colnames(soil.read.tracking) <- c(
+  "Filtered", "Forward_Denoised", "Reverse_Denoised",
+  "Merged_Sequences", "ASVs_No_Chimeras"
+)
+
+## Set row names
+rownames(soil.read.tracking) <- soil.sample.names
+```
+
+\vspace{10pt}
+
+```{r Soil: Table of Tracked Sequences, echo = FALSE}
+kable(
+  soil.read.tracking,
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Number of reads for each step through the bioinformatic pipeline for all root samples."
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+
+\newpage
+### Taxonomy Assignment
+
+```{r Soil: Assign Taxonomy Using the RDP Classifier, echo = TRUE, eval = FALSE}
+## Assign taxonomy using the RDP naive Bayesian classifier
+soil.ASV.RDP.taxonomy.assignment <- assignTaxonomy(
+  seqs = soil.sequence.table.filtered.for.chimeras,
+  refFasta = "rdp_train_set_18.fa.gz",
+  tryRC = TRUE,
+  taxLevels = c("Kingdom", "Phylum", "Class", "Order", "Family", "Genus"),
+  multithread = TRUE
+)
+```
+
+
+
+
+
+\newpage
+# Export ASV & Taxonomy Assignment Data
+
+```{r Export ASV & Taxonomy Assignment Data, echo = TRUE}
+## ASV abundance matrix
+# Root
+write_rds(
+  root.sequence.table.filtered.for.chimeras,
+  file = "data_analysis/7-microbiome_analyses/root_ASV_abundance_table.rds"
+)
+# Soil
+write_rds(
+  soil.sequence.table.filtered.for.chimeras,
+  file = "data_analysis/7-microbiome_analyses/soil_ASV_abundance_table.rds"
+)
+
+## ASV taxonomy table
+# Root
+write_rds(
+  root.ASV.RDP.taxonomy.assignment,
+  file = "data_analysis/7-microbiome_analyses/root_ASV_taxonomy_table.rds"
+)
+# Soil
+write_rds(
+  soil.ASV.RDP.taxonomy.assignment,
+  file = "data_analysis/7-microbiome_analyses/soil_ASV_taxonomy_table.rds"
+)
+```
+
+
+
+
+
+```{r Save Workspace, include = FALSE}
+## Working data
+save.image("data_analysis/7-DADA2_pipeline/DADA2_pipeline-full_workspace.Rdata")
+```
+
+
+
+
+
+
+
+
+
+
+\newpage
+# R Session Information
+
+```{r R Packages, echo = FALSE}
+df_session_packages <- devtools::session_info()$packages %>%
+  as.data.frame(.) %>%
+  filter(attached == TRUE) %>%
+  dplyr::select(loadedversion, date) %>%
+  rownames_to_column()
+
+colnames(df_session_packages) <- c("Package", "Loaded Version", "Date")
+
+kable(
+  df_session_packages,
+  booktabs = TRUE,
+  caption = "Packages required for data management and analysis."
+) %>%
+  kable_styling(
+    full_width = FALSE,
+    latex_options = c("HOLD_position", "striped")
+  )
+```

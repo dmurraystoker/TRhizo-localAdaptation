@@ -1,0 +1,515 @@
+---
+title: "TRhizo-localAdaptation"
+subtitle: "Local Adaptation Indices"
+author: "David Murray-Stoker"
+output:
+  pdf_document:
+    toc: true
+    toc_depth: 4
+    fig_caption: yes
+    latex_engine: xelatex
+always_allow_html: true
+---
+
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+options(knitr.graphics.error = FALSE)
+knitr::opts_chunk$set(results = "hold", fig.pos = "H", fig.align = "center", out.width = "92.5%")
+kableExtra::usepackage_latex("float")
+```
+
+```{r Load Packages for R Markdown, include = FALSE}
+library(kableExtra)
+library(knitr)
+```
+
+
+
+
+
+\newpage
+# Load Packages & Data
+
+```{r Load Packages & Data, echo = TRUE, results = "hide"}
+## Load the tidyverse
+library(tidyverse)
+
+## Packages for analysis
+library(broom)
+library(lme4)
+library(lmerTest)
+
+## Read in data
+biomass.data <- read_rds(file = "data/cleaned_biomass_data.rds")
+nodule.data  <- read_rds(file = "data/cleaned_nodule_data.rds")
+```
+
+
+
+
+
+\newpage
+# Linear Mixed Effects Models
+
+```{r Fit Linear Mixed Effects Models, echo = TRUE}
+## Aboveground biomass
+aboveground.biomass.LA.LMM <- lmer(
+  sqrt(Aboveground_Biomass) ~ Microbiome * Nitrogen
+    + (1 | Microbiome:Population)
+    + (1 | Nitrogen:Population)
+    + (1 | Microbiome:Nitrogen:Population)
+    + (1 | Population)
+    + (1 | Block),
+  data = biomass.data,
+  REML = TRUE
+)
+
+## Belowground biomass
+belowground.biomass.LA.LMM <- lmer(
+  sqrt(Belowground_Biomass) ~ Microbiome * Nitrogen
+    + (1 | Microbiome:Population)
+    + (1 | Nitrogen:Population)
+    + (1 | Microbiome:Nitrogen:Population)
+    + (1 | Population)
+    + (1 | Block),
+  data = biomass.data,
+  REML = TRUE
+)
+
+## Nodule density
+nodule.density.LA.LMM <- lmer(
+  log(Nodule_Density + 1) ~ Microbiome * Nitrogen
+    + (1 | Microbiome:Population)
+    + (1 | Nitrogen:Population)
+    + (1 | Microbiome:Nitrogen:Population)
+    + (1 | Population)
+    + (1 | Block),
+  data = nodule.data,
+  REML = TRUE
+)
+
+## Fixing nodule density
+fixing.nodule.density.LA.LMM <- lmer(
+  log(Fixing_Nodule_Density + 1) ~ Microbiome * Nitrogen
+    + (1 | Microbiome:Population)
+    + (1 | Nitrogen:Population)
+    + (1 | Microbiome:Nitrogen:Population)
+    + (1 | Population)
+    + (1 | Block),
+  data = nodule.data,
+  REML = TRUE
+)
+```
+
+
+
+
+
+\newpage
+# Best Linear Unbiased Predictors (BLUPs)
+
+```{r calculate_MxNxP_BLUPs Functions, echo = TRUE}
+## Set the calculate_MxNxP_BLUPs function
+calculate_MxNxP_BLUPs <- function(lme4_model) {
+  ranef(lme4_model)$`Microbiome:Nitrogen:Population` %>%
+    tibble::rownames_to_column("Microbiome_Nitrogen_Population") %>%
+    dplyr::rename(Estimate = 2)
+}
+```
+
+\vspace{10pt}
+
+```{r Get BLUPs from LMMs, echo = TRUE}
+## Aboveground biomass
+aboveground.biomass.uncleaned.BLUPs <- calculate_MxNxP_BLUPs(
+  aboveground.biomass.LA.LMM
+) %>%
+  separate(
+    col = Microbiome_Nitrogen_Population,
+    c("Microbiome", "Nitrogen", "Population"),
+    sep = ":"
+  )
+
+## Belowground biomass
+belowground.biomass.uncleaned.BLUPs <- calculate_MxNxP_BLUPs(
+  belowground.biomass.LA.LMM
+) %>%
+  separate(
+    col = Microbiome_Nitrogen_Population,
+    c("Microbiome", "Nitrogen", "Population"),
+    sep = ":"
+  )
+
+## Nodule density
+nodule.density.uncleaned.BLUPs <- calculate_MxNxP_BLUPs(
+  nodule.density.LA.LMM
+) %>%
+  separate(
+    col = Microbiome_Nitrogen_Population,
+    c("Microbiome", "Nitrogen", "Population"),
+    sep = ":"
+  )
+
+## Fixing nodule density
+fixing.nodule.density.uncleaned.BLUPs <- calculate_MxNxP_BLUPs(
+  fixing.nodule.density.LA.LMM
+) %>%
+  separate(
+    col = Microbiome_Nitrogen_Population,
+    c("Microbiome", "Nitrogen", "Population"),
+    sep = ":"
+  )
+```
+
+
+
+
+
+\newpage
+# Measures of Local Adaptation
+
+## Data Management
+
+```{r Data Management: Recoded Microbiome Variable, echo = TRUE}
+## Add re-coded Microbiome_Global to calculate global nonlocal effects
+# Aboveground biomass
+aboveground.biomass.uncleaned.BLUPs$Microbiome_Global <- (
+  if_else(aboveground.biomass.uncleaned.BLUPs$Microbiome == "Local", "Local", "Nonlocal_Global")
+)
+
+# Belowground biomass
+belowground.biomass.uncleaned.BLUPs$Microbiome_Global <- (
+  if_else(belowground.biomass.uncleaned.BLUPs$Microbiome == "Local", "Local", "Nonlocal_Global")
+)
+
+# Nodule density
+nodule.density.uncleaned.BLUPs$Microbiome_Global <- (
+  if_else(nodule.density.uncleaned.BLUPs$Microbiome == "Local", "Local", "Nonlocal_Global")
+)
+
+# Fixing nodule density
+fixing.nodule.density.uncleaned.BLUPs$Microbiome_Global <- (
+  if_else(fixing.nodule.density.uncleaned.BLUPs$Microbiome == "Local", "Local", "Nonlocal_Global")
+)
+```
+
+
+
+\newpage
+## Aboveground Biomass LA Indices
+
+```{r Local Adaptation Indices: Aboveground Biomass, echo = TRUE}
+## Local - Nonlocal_Global
+aboveground.biomass.LA.global.data <- aboveground.biomass.uncleaned.BLUPs %>%
+  select(Population, Microbiome_Global, Nitrogen, Estimate) %>%
+  group_by(Population, Microbiome_Global, Nitrogen) %>%
+  summarise(AG_Biomass = mean(Estimate), .groups = "keep") %>%
+  pivot_wider(names_from = Microbiome_Global, values_from = AG_Biomass) %>%
+  mutate(AG_Biomass_LA_Global = Local - Nonlocal_Global) %>%
+  ungroup()
+
+## Local - Nonlocal_Rural
+aboveground.biomass.LA.rural.data <- aboveground.biomass.uncleaned.BLUPs %>%
+  select(Population, Microbiome, Nitrogen, Estimate) %>%
+  filter(Microbiome != "Nonlocal_U") %>%
+  group_by(Population, Microbiome, Nitrogen) %>%
+  summarise(AG_Biomass = mean(Estimate), .groups = "keep") %>%
+  pivot_wider(names_from = Microbiome, values_from = AG_Biomass) %>%
+  mutate(AG_Biomass_LA_Rural = Local - Nonlocal_R) %>%
+  ungroup()
+
+## Local - Nonlocal_Urban
+aboveground.biomass.LA.urban.data <- aboveground.biomass.uncleaned.BLUPs %>%
+  select(Population, Microbiome, Nitrogen, Estimate) %>%
+  filter(Microbiome != "Nonlocal_R") %>%
+  group_by(Population, Microbiome, Nitrogen) %>%
+  summarise(AG_Biomass = mean(Estimate), .groups = "keep") %>%
+  pivot_wider(names_from = Microbiome, values_from = AG_Biomass) %>%
+  mutate(AG_Biomass_LA_Urban = Local - Nonlocal_U) %>%
+  ungroup()
+```
+
+
+
+\newpage
+## Belowground Biomass LA Indices
+
+```{r Local Adaptation Indices: Belowground Biomass, echo = TRUE}
+## Local - Nonlocal_Global
+belowground.biomass.LA.global.data <- belowground.biomass.uncleaned.BLUPs %>%
+  select(Population, Microbiome_Global, Nitrogen, Estimate) %>%
+  group_by(Population, Microbiome_Global, Nitrogen) %>%
+  summarise(BG_Biomass = mean(Estimate), .groups = "keep") %>%
+  pivot_wider(names_from = Microbiome_Global, values_from = BG_Biomass) %>%
+  mutate(BG_Biomass_LA_Global = Local - Nonlocal_Global) %>%
+  ungroup()
+
+## Local - Nonlocal_Rural
+belowground.biomass.LA.rural.data <- belowground.biomass.uncleaned.BLUPs %>%
+  select(Population, Microbiome, Nitrogen, Estimate) %>%
+  filter(Microbiome != "Nonlocal_U") %>%
+  group_by(Population, Microbiome, Nitrogen) %>%
+  summarise(BG_Biomass = mean(Estimate), .groups = "keep") %>%
+  pivot_wider(names_from = Microbiome, values_from = BG_Biomass) %>%
+  mutate(BG_Biomass_LA_Rural = Local - Nonlocal_R) %>%
+  ungroup()
+
+## Local - Nonlocal_Urban
+belowground.biomass.LA.urban.data <- belowground.biomass.uncleaned.BLUPs %>%
+  select(Population, Microbiome, Nitrogen, Estimate) %>%
+  filter(Microbiome != "Nonlocal_R") %>%
+  group_by(Population, Microbiome, Nitrogen) %>%
+  summarise(BG_Biomass = mean(Estimate), .groups = "keep") %>%
+  pivot_wider(names_from = Microbiome, values_from = BG_Biomass) %>%
+  mutate(BG_Biomass_LA_Urban = Local - Nonlocal_U) %>%
+  ungroup()
+```
+
+
+
+\newpage
+## Nodule Density LA Indices
+
+```{r Local Adaptation Indices: Nodule Density, echo = TRUE}
+## Local - Nonlocal_Global
+nodule.density.LA.global.data <- nodule.density.uncleaned.BLUPs %>%
+  select(Population, Microbiome_Global, Nitrogen, Estimate) %>%
+  group_by(Population, Microbiome_Global, Nitrogen) %>%
+  summarise(Nod_Density = mean(Estimate), .groups = "keep") %>%
+  pivot_wider(names_from = Microbiome_Global, values_from = Nod_Density) %>%
+  mutate(Nod_Density_LA_Global = Local - Nonlocal_Global) %>%
+  ungroup()
+
+## Local - Nonlocal_Rural
+nodule.density.LA.rural.data <- nodule.density.uncleaned.BLUPs %>%
+  select(Population, Microbiome, Nitrogen, Estimate) %>%
+  filter(Microbiome != "Nonlocal_U") %>%
+  group_by(Population, Microbiome, Nitrogen) %>%
+  summarise(Nod_Density = mean(Estimate), .groups = "keep") %>%
+  pivot_wider(names_from = Microbiome, values_from = Nod_Density) %>%
+  mutate(Nod_Density_LA_Rural = Local - Nonlocal_R) %>%
+  ungroup()
+
+## Local - Nonlocal_Urban
+nodule.density.LA.urban.data <- nodule.density.uncleaned.BLUPs %>%
+  select(Population, Microbiome, Nitrogen, Estimate) %>%
+  filter(Microbiome != "Nonlocal_R") %>%
+  group_by(Population, Microbiome, Nitrogen) %>%
+  summarise(Nod_Density = mean(Estimate), .groups = "keep") %>%
+  pivot_wider(names_from = Microbiome, values_from = Nod_Density) %>%
+  mutate(Nod_Density_LA_Urban = Local - Nonlocal_U) %>%
+  ungroup()
+```
+
+
+
+\newpage
+## Fixing Nodule Density LA Indices
+
+```{r Local Adaptation Indices: Fixing Nodule Density, echo = TRUE}
+## Local - Nonlocal_Global
+fixing.nodule.density.LA.global.data <- fixing.nodule.density.uncleaned.BLUPs %>%
+  select(Population, Microbiome_Global, Nitrogen, Estimate) %>%
+  group_by(Population, Microbiome_Global, Nitrogen) %>%
+  summarise(Fix_Nod_Density = mean(Estimate), .groups = "keep") %>%
+  pivot_wider(names_from = Microbiome_Global, values_from = Fix_Nod_Density) %>%
+  mutate(Fix_Nod_Density_LA_Global = Local - Nonlocal_Global) %>%
+  ungroup()
+
+## Local - Nonlocal_Rural
+fixing.nodule.density.LA.rural.data <- fixing.nodule.density.uncleaned.BLUPs %>%
+  select(Population, Microbiome, Nitrogen, Estimate) %>%
+  filter(Microbiome != "Nonlocal_U") %>%
+  group_by(Population, Microbiome, Nitrogen) %>%
+  summarise(Fix_Nod_Density = mean(Estimate), .groups = "keep") %>%
+  pivot_wider(names_from = Microbiome, values_from = Fix_Nod_Density) %>%
+  mutate(Fix_Nod_Density_LA_Rural = Local - Nonlocal_R) %>%
+  ungroup()
+
+## Local - Nonlocal_Urban
+fixing.nodule.density.LA.urban.data <- fixing.nodule.density.uncleaned.BLUPs %>%
+  select(Population, Microbiome, Nitrogen, Estimate) %>%
+  filter(Microbiome != "Nonlocal_R") %>%
+  group_by(Population, Microbiome, Nitrogen) %>%
+  summarise(Fix_Nod_Density = mean(Estimate), .groups = "keep") %>%
+  pivot_wider(names_from = Microbiome, values_from = Fix_Nod_Density) %>%
+  mutate(Fix_Nod_Density_LA_Urban = Local - Nonlocal_U) %>%
+  ungroup()
+```
+
+
+
+
+
+\newpage
+# Correlation Matrices for Local Adaptation Indices
+
+
+## Local - Nonlocal~Global~ Local Adaptation Correlation Matrix
+
+```{r Local - Nonlocal_Global Correlation Matrix, echo = TRUE}
+## Local - Nonlocal_Global data
+# Subset local adaptation indices
+aboveground.biomass.global <- aboveground.biomass.LA.global.data %>%
+  select(Population, Nitrogen, AG_Biomass_LA_Global)
+belowground.biomass.global <- belowground.biomass.LA.global.data %>%
+  select(Population, Nitrogen, BG_Biomass_LA_Global)
+nodule.density.global <- nodule.density.LA.global.data %>%
+  select(Population, Nitrogen, Nod_Density_LA_Global)
+fixing.nodule.density.global <- fixing.nodule.density.LA.global.data %>%
+  select(Population, Nitrogen, Fix_Nod_Density_LA_Global)
+
+# Combine the data
+global.local.adaptation.correlation.data <- aboveground.biomass.LA.global.data %>%
+  select(Population, Nitrogen) %>%
+  left_join(aboveground.biomass.global, by = c("Population", "Nitrogen")) %>%
+  left_join(belowground.biomass.global, by = c("Population", "Nitrogen")) %>%
+  left_join(nodule.density.global, by = c("Population", "Nitrogen")) %>%
+  left_join(fixing.nodule.density.global, by = c("Population", "Nitrogen")) %>%
+  drop_na()
+```
+
+
+
+\newpage
+## Local - Nonlocal~Rural~ Local Adaptation Correlation Matrix
+
+```{r Local - Nonlocal_Rural Correlation Matrix, echo = TRUE}
+## Local - Nonlocal_Rural data
+# Subset local adaptation indices
+aboveground.biomass.rural <- aboveground.biomass.LA.rural.data %>%
+  select(Population, Nitrogen, AG_Biomass_LA_Rural)
+belowground.biomass.rural <- belowground.biomass.LA.rural.data %>%
+  select(Population, Nitrogen, BG_Biomass_LA_Rural)
+nodule.density.rural <- nodule.density.LA.rural.data %>%
+  select(Population, Nitrogen, Nod_Density_LA_Rural)
+fixing.nodule.density.rural <- fixing.nodule.density.LA.rural.data %>%
+  select(Population, Nitrogen, Fix_Nod_Density_LA_Rural)
+
+# Combine the data
+rural.local.adaptation.correlation.data <- aboveground.biomass.LA.rural.data %>%
+  select(Population, Nitrogen) %>%
+  left_join(aboveground.biomass.rural, by = c("Population", "Nitrogen")) %>%
+  left_join(belowground.biomass.rural, by = c("Population", "Nitrogen")) %>%
+  left_join(nodule.density.rural, by = c("Population", "Nitrogen")) %>%
+  left_join(fixing.nodule.density.rural, by = c("Population", "Nitrogen")) %>%
+  drop_na()
+```
+
+
+
+\newpage
+## Local - Nonlocal~Urban~ Local Adaptation Correlation Matrix
+
+```{r Local - Nonlocal_Urban Correlation Matrix, echo = TRUE}
+## Local - Nonlocal_Urban data
+# Subset local adaptation indices
+aboveground.biomass.urban <- aboveground.biomass.LA.urban.data %>%
+  select(Population, Nitrogen, AG_Biomass_LA_Urban)
+belowground.biomass.urban <- belowground.biomass.LA.urban.data %>%
+  select(Population, Nitrogen, BG_Biomass_LA_Urban)
+nodule.density.urban <- nodule.density.LA.urban.data %>%
+  select(Population, Nitrogen, Nod_Density_LA_Urban)
+fixing.nodule.density.urban <- fixing.nodule.density.LA.urban.data %>%
+  select(Population, Nitrogen, Fix_Nod_Density_LA_Urban)
+
+# Combine the data
+urban.local.adaptation.correlation.data <- aboveground.biomass.LA.urban.data %>%
+  select(Population, Nitrogen) %>%
+  left_join(aboveground.biomass.urban, by = c("Population", "Nitrogen")) %>%
+  left_join(belowground.biomass.urban, by = c("Population", "Nitrogen")) %>%
+  left_join(nodule.density.urban, by = c("Population", "Nitrogen")) %>%
+  left_join(fixing.nodule.density.urban, by = c("Population", "Nitrogen")) %>%
+  drop_na()
+```
+
+
+
+
+
+\newpage
+# Export Data
+
+```{r Export Uncleaned BLUPs & Local Adaptation Index Correlation Matrices, include = FALSE}
+## Export uncleaned BLUPs
+# Aboveground biomass
+write_rds(
+  aboveground.biomass.uncleaned.BLUPs,
+  file = "data/aboveground_biomass_uncleaned_BLUPs.rds"
+)
+# Belowground biomass
+write_rds(
+  belowground.biomass.uncleaned.BLUPs,
+  file = "data/belowground_biomass_uncleaned_BLUPs.rds"
+)
+# Nodule density
+write_rds(
+  nodule.density.uncleaned.BLUPs,
+  file = "data/nodule_density_uncleaned_BLUPs.rds"
+)
+# Fixing nodule density
+write_rds(
+  fixing.nodule.density.uncleaned.BLUPs,
+  file = "data/fixing_nodule_density_uncleaned_BLUPs.rds"
+)
+
+
+## Export the Local - Nonlocal_Global LA Index correlation matrix
+write_rds(
+  global.local.adaptation.correlation.data,
+  file = "data/global_local_adaptation_correlation_data.rds"
+)
+
+## Export the Local - Nonlocal_Rural LA Index correlation matrix
+write_rds(
+  rural.local.adaptation.correlation.data,
+  file = "data/rural_local_adaptation_correlation_data.rds"
+)
+
+## Export the Local - Nonlocal_Urban LA Index correlation matrix
+write_rds(
+  urban.local.adaptation.correlation.data,
+  file = "data/urban_local_adaptation_correlation_data.rds"
+)
+```
+
+
+
+
+
+```{r Save Final Workspace, include = FALSE}
+save.image("data_analysis/4-local_adaptation_indices/local_adaptation_indices.RData")
+```
+
+
+
+
+
+
+
+
+
+
+\newpage
+# R Session Information
+
+```{r R Packages, echo = FALSE}
+df_session_packages <- devtools::session_info()$packages %>%
+  as.data.frame(.) %>%
+  filter(attached == TRUE) %>%
+  dplyr::select(loadedversion, date) %>%
+  rownames_to_column()
+
+colnames(df_session_packages) <- c("Package", "Loaded Version", "Date")
+
+kable(
+  df_session_packages,
+  booktabs = TRUE,
+  caption = "Packages required for data management and analysis."
+) %>%
+  kable_styling(
+    full_width = FALSE,
+    latex_options = c("HOLD_position", "striped")
+  )
+```

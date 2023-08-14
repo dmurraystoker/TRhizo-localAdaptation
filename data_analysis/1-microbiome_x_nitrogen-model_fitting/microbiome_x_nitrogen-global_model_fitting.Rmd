@@ -1,0 +1,1716 @@
+---
+title: "TRhizo-localAdaptation"
+subtitle: "Microbiome x Nitrogen Global Model Fitting"
+author: "David Murray-Stoker"
+output:
+  pdf_document:
+    toc: true
+    toc_depth: 5
+    fig_caption: yes
+always_allow_html: true
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+options(knitr.graphics.error = FALSE)
+knitr::opts_chunk$set(results = "hold", fig.pos = "H", fig.align = "center", out.width = "85%")
+kableExtra::usepackage_latex("float")
+```
+
+```{r Load Package for R Markdown, include = FALSE}
+library(kableExtra)
+library(knitr)
+```
+
+
+
+
+
+\newpage
+# Load Packages & Data
+
+```{r Load Packages & Data, echo = TRUE, results = "hide"}
+## Load the tidyverse
+library(tidyverse)
+
+## Packages for analysis
+library(AICcmodavg)
+library(broom)
+library(easystats)
+library(lmerTest)
+
+## Read in data
+biomass.data <- read_rds(file = "data/cleaned_biomass_data.rds")
+nodule.data <- read_rds(file = "data/cleaned_nodule_data.rds")
+
+## Recode to Microbiome_Global_Global to test for global effects
+# Biomass data
+biomass.data$Microbiome_Global <- if_else(
+  biomass.data$Microbiome == "Local", "Local", "Nonlocal_Global"
+)
+# Nodule data
+nodule.data$Microbiome_Global <- if_else(
+  nodule.data$Microbiome == "Local", "Local", "Nonlocal_Global"
+)
+
+## Read in workspace
+#load("data_analysis/M_x_N-global_model_fitting-workspace.RData")
+```
+
+
+
+
+
+\newpage
+# Aboveground Biomass
+
+\vspace{8pt}
+
+## Aboveground Biomass M x N Model 1
+
+```{r Aboveground Biomass Model Fitting: M x N Model 1, echo TRUE}
+aboveground.biomass.MN.LMM.1 <- lmer(
+  sqrt(Aboveground_Biomass) ~ Microbiome_Global * Nitrogen
+    + (1 | Microbiome_Global:Population)
+    + (1 | Nitrogen:Population)
+    + (1 | Microbiome_Global:Nitrogen:Population)
+    + (1 | Population)
+    + (1 | Block),
+  data = biomass.data,
+  REML = TRUE
+)
+```
+
+\vspace{8pt}
+
+### Check Aboveground Biomass M x N Model 1 Assumptions
+
+\vspace{8pt}
+
+```{r performance Diagnostics: Aboveground Biomass M x N Model 1 Fit, echo = TRUE, eval = FALSE}
+## Check model convergence
+check_convergence(aboveground.biomass.MN.LMM.1)
+# Model converged
+
+## Check for boundary singularity
+check_singularity(aboveground.biomass.MN.LMM.1)
+# No singularity
+```
+
+\vspace{8pt}
+
+```{r performance Diagnostics: Aboveground Biomass M x N Model 1, echo = TRUE, eval = FALSE}
+## Visual assessment of model diagnostics
+check_model(aboveground.biomass.MN.LMM.1)
+# Visual check = assumptions met
+
+## Check normality of fixed effects (Shapiro-Wilk test)
+check_normality(aboveground.biomass.MN.LMM.1, effects = "fixed")
+# Suggests statistical non-normality of residuals (P < 0.001)
+# Mixed-effects models are robust to this assumption
+
+## Check normality of random effects
+check_normality(aboveground.biomass.MN.LMM.1, effects = "random")
+# M:P = Good
+# N:P = Non-normality detected (P = 0.006)
+# M:N:P = Non-normality detected (P = 0.002)
+# P = Good
+# B = Good
+
+## Check for non-constant variance of residuals (Breusch-Pagan test)
+check_heteroscedasticity(aboveground.biomass.MN.LMM.1)
+# Heteroscedasticity (non-constant error variance) detected (P < 0.001)
+
+## Check for homogeneity of variance (Bartlett test)
+check_homogeneity(aboveground.biomass.MN.LMM.1)
+# Variances differ between groups (P < 0.001)
+
+## Check for outliers
+check_outliers(aboveground.biomass.MN.LMM.1)
+# 2 outliers detected
+```
+
+
+\newpage
+## Aboveground Biomass M x N Model 2
+
+```{r Aboveground Biomass Model Fitting: M x N Model 2, echo = TRUE}
+aboveground.biomass.MN.LMM.2 <- lmer(
+  sqrt(Aboveground_Biomass) ~ Microbiome_Global * Nitrogen
+    + (Microbiome_Global | Population)
+    + (Nitrogen | Population)
+    + (Microbiome_Global:Nitrogen | Population)
+    + (1 | Population)
+    + (1 | Block),
+  data = biomass.data,
+  REML = TRUE
+)
+```
+
+\vspace{8pt}
+
+### Check Aboveground Biomass M x N Model 2 Assumptions
+
+\vspace{8pt}
+
+```{r performance Diagnostics: Aboveground Biomass M x N Model 2 Fit, echo = TRUE, eval = FALSE}
+## Check model convergence
+check_convergence(aboveground.biomass.MN.LMM.2)
+# Model failed to converge
+
+## Check for boundary singularity
+check_singularity(aboveground.biomass.MN.LMM.2)
+# Singularity
+```
+
+\vspace{8pt}
+
+```{r performance Diagnostics: Aboveground Biomass M x N Model 2, echo = TRUE, eval = FALSE}
+## Visual assessment of model diagnostics
+check_model(aboveground.biomass.MN.LMM.2)
+# Visual check = assumptions met
+
+## Check normality of fixed effects (Shapiro-Wilk test)
+check_normality(aboveground.biomass.MN.LMM.2, effects = "fixed")
+# Suggests statistical non-normality of residuals (P < 0.001)
+# Mixed-effects models are robust to this assumption
+
+## Check normality of random effects
+check_normality(aboveground.biomass.MN.LMM.2, effects = "random")
+# M:P = Bad
+# N:P = Baf
+# M:N:P = Bad
+# P = Bad
+# B = Good
+
+## Check for non-constant variance of residuals (Breusch-Pagan test)
+check_heteroscedasticity(aboveground.biomass.MN.LMM.2)
+# Heteroscedasticity (non-constant error variance) detected (P < 0.001)
+
+## Check for homogeneity of variance (Bartlett test)
+check_homogeneity(aboveground.biomass.MN.LMM.2)
+# Variances differ between groups (P < 0.001)
+
+## Check for outliers
+check_outliers(aboveground.biomass.MN.LMM.2)
+# 3 outliers detected
+```
+
+
+\newpage
+## Aboveground Biomass M x N Model 3
+
+```{r Aboveground Biomass Model Fitting: M x N Model 3, echo = TRUE}
+aboveground.biomass.MN.LMM.3 <- lmer(
+  sqrt(Aboveground_Biomass) ~ Microbiome_Global * Nitrogen
+    + (1 | Population)
+    + (1 | Block),
+  data = biomass.data,
+  REML = TRUE
+)
+```
+
+\vspace{8pt}
+
+### Check Aboveground Biomass M x N Model 3 Assumptions
+
+\vspace{8pt}
+
+```{r performance Diagnostics: Aboveground Biomass M x N Model 3 Fit, echo = TRUE, eval = FALSE}
+## Check model convergence
+check_convergence(aboveground.biomass.MN.LMM.3)
+# Model converged
+
+## Check for boundary singularity
+check_singularity(aboveground.biomass.MN.LMM.3)
+# No singularity
+```
+
+\vspace{8pt}
+
+```{r performance Diagnostics: Aboveground Biomass M x N Model 3, echo = TRUE, eval = FALSE}
+## Visual assessment of model diagnostics
+check_model(aboveground.biomass.MN.LMM.3)
+# Visual check = assumptions met
+
+## Check normality of fixed effects (Shapiro-Wilk test)
+check_normality(aboveground.biomass.MN.LMM.3, effects = "fixed")
+# Suggests statistical non-normality of residuals (P < 0.001)
+# Mixed-effects models are robust to this assumption
+
+## Check normality of random effects
+check_normality(aboveground.biomass.MN.LMM.3, effects = "random")
+# P = Good
+# B = Good
+
+## Check for non-constant variance of residuals (Breusch-Pagan test)
+check_heteroscedasticity(aboveground.biomass.MN.LMM.3)
+# Heteroscedasticity (non-constant error variance) detected (P < 0.001)
+
+## Check for homogeneity of variance (Bartlett test)
+check_homogeneity(aboveground.biomass.MN.LMM.3)
+# Variances differ between groups (P < 0.001)
+
+## Check for outliers
+check_outliers(aboveground.biomass.MN.LMM.3)
+# No outliers detected
+```
+
+
+
+\newpage
+## Aboveground Biomass M x N Model Comparisons
+
+\vspace{8pt}
+
+```{r Aboveground Biomass AIC on Model Set, include = FALSE}
+aboveground.biomass.model.set.AIC.table <- aictab(
+  cand.set = list(
+    aboveground.biomass.MN.LMM.1, aboveground.biomass.MN.LMM.2,
+    aboveground.biomass.MN.LMM.3
+  ),
+  modnames = c("MN_Model_1", "MN_Model_2", "MN_Model_3"),
+  second.ord = TRUE
+)
+```
+
+```{r Aboveground Biomass Model Set AIC Table, echo = FALSE}
+kable(aboveground.biomass.model.set.AIC.table,
+  booktabs = TRUE,
+  digits = 3,
+  caption = "AIC table comparing candidate Aboveground Biomass M x N Models 1-3.",
+  col.names = c(
+    "Model", "K", "AICc", "Delta_AICc", "Model_Likelihood",
+    "AICc_Weight", "Residual_LL", "Summed_Weight"
+  )
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped", "scale_down"))
+```
+
+
+
+\newpage
+## Aboveground Biomass M x N Model 1 Subsets
+
+\vspace{8pt}
+
+### Aboveground Biomass M x N Model 1.1
+
+```{r Aboveground Biomass Model Fitting: M x N Model 1.1, echo TRUE}
+## Remove (1 | Microbiome_Global:Nitrogen:Population)
+aboveground.biomass.MN.LMM.1.1 <- lmer(
+  sqrt(Aboveground_Biomass) ~ Microbiome_Global * Nitrogen
+    + (1 | Microbiome_Global:Population)
+    + (1 | Nitrogen:Population)
+    + (1 | Population)
+    + (1 | Block),
+  data = biomass.data,
+  REML = TRUE
+)
+```
+
+\vspace{8pt}
+
+### Check Aboveground Biomass M x N Model 1.1 Assumptions
+
+\vspace{8pt}
+
+```{r performance Diagnostics: Aboveground Biomass M x N Model 1.1 Fit, echo = TRUE, eval = FALSE}
+## Check model convergence
+check_convergence(aboveground.biomass.MN.LMM.1.1)
+# Model converged
+
+## Check for boundary singularity
+check_singularity(aboveground.biomass.MN.LMM.1.1)
+# No singularity
+```
+
+\vspace{8pt}
+
+```{r performance Diagnostics: Aboveground Biomass M x N Model 1.1, echo = TRUE, eval = FALSE}
+## Visual assessment of model diagnostics
+check_model(aboveground.biomass.MN.LMM.1.1)
+# Visual check = assumptions met
+
+## Check normality of fixed effects (Shapiro-Wilk test)
+check_normality(aboveground.biomass.MN.LMM.1.1, effects = "fixed")
+# Suggests statistical non-normality of residuals (P < 0.001)
+# Mixed-effects models are robust to this assumption
+
+## Check normality of random effects
+check_normality(aboveground.biomass.MN.LMM.1.1, effects = "random")
+# M:P = Good
+# N:P = Non-normality detected (P = 0.006)
+# P = Good
+# B = Good
+
+## Check for non-constant variance of residuals (Breusch-Pagan test)
+check_heteroscedasticity(aboveground.biomass.MN.LMM.1.1)
+# Heteroscedasticity (non-constant error variance) detected (P < 0.001)
+
+## Check for homogeneity of variance (Bartlett test)
+check_homogeneity(aboveground.biomass.MN.LMM.1.1)
+# Variances differ between groups (P < 0.001)
+
+## Check for outliers
+check_outliers(aboveground.biomass.MN.LMM.1.1)
+# 2 outliers detected
+```
+
+
+\newpage
+### Aboveground Biomass M x N Model 1.2
+
+```{r Aboveground Biomass Model Fitting: M x N Model 1.2, echo TRUE}
+## Remove (1 | Microbiome_Global:Population) and (1 | Microbiome_Global:Nitrogen:Population)
+aboveground.biomass.MN.LMM.1.2 <- lmer(
+  sqrt(Aboveground_Biomass) ~ Microbiome_Global * Nitrogen
+    + (1 | Nitrogen:Population)
+    + (1 | Population)
+    + (1 | Block),
+  data = biomass.data,
+  REML = TRUE
+)
+```
+
+\vspace{8pt}
+
+### Check Aboveground Biomass M x N Model 1.2 Assumptions
+
+\vspace{8pt}
+
+```{r performance Diagnostics: Aboveground Biomass M x N Model 1.2 Fit, echo = TRUE, eval = FALSE}
+## Check model convergence
+check_convergence(aboveground.biomass.MN.LMM.1.2)
+# Model converged
+
+## Check for boundary singularity
+check_singularity(aboveground.biomass.MN.LMM.1.2)
+# No singularity
+```
+
+\vspace{8pt}
+
+```{r performance Diagnostics: Aboveground Biomass M x N Model 1.2, echo = TRUE, eval = FALSE}
+## Visual assessment of model diagnostics
+check_model(aboveground.biomass.MN.LMM.1.2)
+# Visual check = assumptions met
+
+## Check normality of fixed effects (Shapiro-Wilk test)
+check_normality(aboveground.biomass.MN.LMM.1.2, effects = "fixed")
+# Suggests statistical non-normality of residuals (P < 0.001)
+# Mixed-effects models are robust to this assumption
+
+## Check normality of random effects
+check_normality(aboveground.biomass.MN.LMM.1.2, effects = "random")
+# N:P = Non-normality detected (P = 0.008)
+# P = Good
+# B = Good
+
+## Check for non-constant variance of residuals (Breusch-Pagan test)
+check_heteroscedasticity(aboveground.biomass.MN.LMM.1.2)
+# Heteroscedasticity (non-constant error variance) detected (P < 0.001)
+
+## Check for homogeneity of variance (Bartlett test)
+check_homogeneity(aboveground.biomass.MN.LMM.1.2)
+# Variances differ between groups (P < 0.001)
+
+## Check for outliers
+check_outliers(aboveground.biomass.MN.LMM.1.2)
+# No outliers detected
+```
+
+
+\newpage
+### Aboveground Biomass M x N Model 1.3
+
+```{r Aboveground Biomass Model Fitting: M x N Model 1.3, echo TRUE}
+## Remove (1 | Nitrogen:Population) and (1 | Microbiome_Global:Nitrogen:Population)
+aboveground.biomass.MN.LMM.1.3 <- lmer(
+  sqrt(Aboveground_Biomass) ~ Microbiome_Global * Nitrogen
+    + (1 | Microbiome_Global:Population)
+    + (1 | Population)
+    + (1 | Block),
+  data = biomass.data,
+  REML = TRUE
+)
+```
+
+\vspace{8pt}
+
+### Check Aboveground Biomass M x N Model 1.3 Assumptions
+
+\vspace{8pt}
+
+```{r performance Diagnostics: Aboveground Biomass M x N Model 1.3 Fit, echo = TRUE, eval = FALSE}
+## Check model convergence
+check_convergence(aboveground.biomass.MN.LMM.1.3)
+# Model converged
+
+## Check for boundary singularity
+check_singularity(aboveground.biomass.MN.LMM.1.3)
+# No singularity
+```
+
+\vspace{8pt}
+
+```{r performance Diagnostics: Aboveground Biomass M x N Model 1.3, echo = TRUE, eval = FALSE}
+## Visual assessment of model diagnostics
+check_model(aboveground.biomass.MN.LMM.1.3)
+# Visual check = assumptions met
+
+## Check normality of fixed effects (Shapiro-Wilk test)
+check_normality(aboveground.biomass.MN.LMM.1.3, effects = "fixed")
+# Suggests statistical non-normality of residuals (P < 0.001)
+# Mixed-effects models are robust to this assumption
+
+## Check normality of random effects
+check_normality(aboveground.biomass.MN.LMM.1.3, effects = "random")
+# M:P = Good
+# P = Good
+# B = Good
+
+## Check for non-constant variance of residuals (Breusch-Pagan test)
+check_heteroscedasticity(aboveground.biomass.MN.LMM.1.3)
+# Heteroscedasticity (non-constant error variance) detected (P < 0.001)
+
+## Check for homogeneity of variance (Bartlett test)
+check_homogeneity(aboveground.biomass.MN.LMM.1.3)
+# Variances differ between groups (P < 0.001)
+
+## Check for outliers
+check_outliers(aboveground.biomass.MN.LMM.1.3)
+# No outliers detected
+```
+
+
+
+\newpage
+## Aboveground Biomass M x N Comparisons-Focal Models & Subsets
+
+\vspace{8pt}
+
+```{r Aboveground Biomass AIC on M x N Model 1 and Subsets, include = FALSE}
+aboveground.biomass.model.set.subsets.AIC.table <- aictab(
+  cand.set = list(
+    aboveground.biomass.MN.LMM.3, aboveground.biomass.MN.LMM.1,
+    aboveground.biomass.MN.LMM.1.1, aboveground.biomass.MN.LMM.1.2,
+    aboveground.biomass.MN.LMM.1.3
+  ),
+  modnames = c("MN_Model_3", "MN_Model_1", "MN_Model_1.1", "MN_Model_1.2", "MN_Model_1.3"),
+  second.ord = TRUE
+)
+```
+
+```{r Aboveground Biomass Model Set and Subsets AIC Table, echo = FALSE}
+kable(aboveground.biomass.model.set.subsets.AIC.table,
+  booktabs = TRUE,
+  digits = 3,
+  caption = "AIC table comparing candidate Aboveground Biomass M x N Model 3, Model 1, and Model 1 subsets (Aboveground Biomass M x N Models 1.1-1.3).",
+  col.names = c(
+    "Model", "K", "AICc", "Delta_AICc", "Model_Likelihood",
+    "AICc_Weight", "Residual_LL", "Summed_Weight"
+  )
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped", "scale_down"))
+```
+
+
+
+
+
+\newpage
+# Belowground Biomass
+
+\vspace{8pt}
+
+## Belowground Biomass M x N Model 1
+
+```{r Belowground Biomass Model Fitting: M x N Model 1, echo TRUE}
+belowground.biomass.MN.LMM.1 <- lmer(
+  sqrt(Belowground_Biomass) ~ Microbiome_Global * Nitrogen
+    + (1 | Microbiome_Global:Population)
+    + (1 | Nitrogen:Population)
+    + (1 | Microbiome_Global:Nitrogen:Population)
+    + (1 | Population)
+    + (1 | Block),
+  data = biomass.data,
+  REML = TRUE
+)
+```
+
+\vspace{8pt}
+
+### Check Belowground Biomass M x N Model 1 Assumptions
+
+\vspace{8pt}
+
+```{r performance Diagnostics: Belowground Biomass M x N Model 1 Fit, echo = TRUE, eval = FALSE}
+## Check model convergence
+check_convergence(belowground.biomass.MN.LMM.1)
+# Model converged
+
+## Check for boundary singularity
+check_singularity(belowground.biomass.MN.LMM.1)
+# No singularity
+```
+
+\vspace{8pt}
+
+```{r performance Diagnostics: Belowground Biomass M x N Model 1, echo = TRUE, eval = FALSE}
+## Visual assessment of model diagnostics
+check_model(belowground.biomass.MN.LMM.1)
+# Visual check = assumptions met
+
+## Check normality of fixed effects (Shapiro-Wilk test)
+check_normality(belowground.biomass.MN.LMM.1, effects = "fixed")
+# Suggests statistical non-normality of residuals (P < 0.001)
+# Mixed-effects models are robust to this assumption
+
+## Check normality of random effects
+check_normality(belowground.biomass.MN.LMM.1, effects = "random")
+# M:P = Good
+# N:P = Good
+# M:N:P = Good
+# P = Good
+# B = Good
+
+## Check for non-constant variance of residuals (Breusch-Pagan test)
+check_heteroscedasticity(belowground.biomass.MN.LMM.1)
+# Heteroscedasticity (non-constant error variance) detected (P < 0.001)
+
+## Check for homogeneity of variance (Bartlett test)
+check_homogeneity(belowground.biomass.MN.LMM.1)
+# Variances differ between groups (P < 0.001)
+
+## Check for outliers
+check_outliers(belowground.biomass.MN.LMM.1)
+# No outliers detected
+```
+
+
+\newpage
+## Belowground Biomass M x N Model 2
+
+```{r Belowground Biomass Model Fitting: M x N Model 2, echo = TRUE}
+belowground.biomass.MN.LMM.2 <- lmer(
+  sqrt(Belowground_Biomass) ~ Microbiome_Global * Nitrogen
+    + (Microbiome_Global | Population)
+    + (Nitrogen | Population)
+    + (Microbiome_Global:Nitrogen | Population)
+    + (1 | Population)
+    + (1 | Block),
+  data = biomass.data,
+  REML = TRUE
+)
+```
+
+\vspace{8pt}
+
+### Check Belowground Biomass M x N Model 2 Assumptions
+
+\vspace{8pt}
+
+```{r performance Diagnostics: Belowground Biomass M x N Model 2 Fit, echo = TRUE, eval = FALSE}
+## Check model convergence
+check_convergence(belowground.biomass.MN.LMM.2)
+# Model converged
+
+## Check for boundary singularity
+check_singularity(belowground.biomass.MN.LMM.2)
+# Singularity
+```
+
+\vspace{8pt}
+
+```{r performance Diagnostics: Belowground Biomass M x N Model 2, echo = TRUE, eval = FALSE}
+## Visual assessment of model diagnostics
+check_model(belowground.biomass.MN.LMM.2)
+# Visual check = assumptions met
+
+## Check normality of fixed effects (Shapiro-Wilk test)
+check_normality(belowground.biomass.MN.LMM.2, effects = "fixed")
+# Suggests statistical non-normality of residuals (P < 0.001)
+# Mixed-effects models are robust to this assumption
+
+## Check normality of random effects
+check_normality(belowground.biomass.MN.LMM.2, effects = "random")
+# M:P = Good
+# N:P = Good
+# M:N:P = Good
+# P = Good
+# B = Good
+
+## Check for non-constant variance of residuals (Breusch-Pagan test)
+check_heteroscedasticity(belowground.biomass.MN.LMM.2)
+# Heteroscedasticity (non-constant error variance) detected (P < 0.001)
+
+## Check for homogeneity of variance (Bartlett test)
+check_homogeneity(belowground.biomass.MN.LMM.2)
+# Variances differ between groups (P < 0.001)
+
+## Check for outliers
+check_outliers(belowground.biomass.MN.LMM.2)
+# No outliers detected
+```
+
+
+
+\newpage
+## Belowground Biomass M x N Model 3
+
+```{r Belowground Biomass Model Fitting: M x N Model 3, echo = TRUE}
+belowground.biomass.MN.LMM.3 <- lmer(
+  sqrt(Belowground_Biomass) ~ Microbiome_Global * Nitrogen
+    + (1 | Population)
+    + (1 | Block),
+  data = biomass.data,
+  REML = TRUE
+)
+```
+
+\vspace{8pt}
+
+### Check Belowground Biomass M x N Model 3 Assumptions
+
+\vspace{8pt}
+
+```{r performance Diagnostics: Belowground Biomass M x N Model 3 Fit, echo = TRUE, eval = FALSE}
+## Check model convergence
+check_convergence(belowground.biomass.MN.LMM.3)
+# Model converged
+
+## Check for boundary singularity
+check_singularity(belowground.biomass.MN.LMM.3)
+# No singularity
+```
+
+\vspace{8pt}
+
+```{r performance Diagnostics: Belowground Biomass M x N Model 3, echo = TRUE, eval = FALSE}
+## Visual assessment of model diagnostics
+check_model(belowground.biomass.MN.LMM.3)
+# Visual check = assumptions met
+
+## Check normality of fixed effects (Shapiro-Wilk test)
+check_normality(belowground.biomass.MN.LMM.3, effects = "fixed")
+# Suggests statistical non-normality of residuals (P < 0.001)
+# Mixed-effects models are robust to this assumption
+
+## Check normality of random effects
+check_normality(belowground.biomass.MN.LMM.3, effects = "random")
+# P = Good
+# B = Good
+
+## Check for non-constant variance of residuals (Breusch-Pagan test)
+check_heteroscedasticity(belowground.biomass.MN.LMM.3)
+# Heteroscedasticity (non-constant error variance) detected (P < 0.001)
+
+## Check for homogeneity of variance (Bartlett test)
+check_homogeneity(belowground.biomass.MN.LMM.3)
+# Variances differ between groups (P < 0.001)
+
+## Check for outliers
+check_outliers(belowground.biomass.MN.LMM.3)
+# No outliers detected
+```
+
+
+
+\newpage
+## Belowground Biomass M x N Model Comparisons
+
+\vspace{8pt}
+
+```{r Belowground Biomass AIC on Model Set, include = FALSE}
+belowground.biomass.model.set.AIC.table <- aictab(
+  cand.set = list(
+    belowground.biomass.MN.LMM.1, belowground.biomass.MN.LMM.2,
+    belowground.biomass.MN.LMM.3
+  ),
+  modnames = c("MN_Model_1", "MN_Model_2", "MN_Model_3"),
+  second.ord = TRUE
+)
+```
+
+```{r Belowground Biomass Model Set AIC Table, echo = FALSE}
+kable(belowground.biomass.model.set.AIC.table,
+  booktabs = TRUE,
+  digits = 3,
+  caption = "AIC table comparing candidate Belowground Biomass M x N Models 1-3.",
+  col.names = c(
+    "Model", "K", "AICc", "Delta_AICc", "Model_Likelihood",
+    "AICc_Weight", "Residual_LL", "Summed_Weight"
+  )
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped", "scale_down"))
+```
+
+
+
+
+
+\newpage
+# Nodule Density
+
+\vspace{8pt}
+
+## Nodule Density M x N Model 1
+
+```{r Nodule Density Model Fitting: M x N Model 1, echo TRUE}
+nodule.density.MN.LMM.1 <- lmer(
+  log(Nodule_Density + 1) ~ Microbiome_Global * Nitrogen
+    + (1 | Microbiome_Global:Population)
+    + (1 | Nitrogen:Population)
+    + (1 | Microbiome_Global:Nitrogen:Population)
+    + (1 | Population)
+    + (1 | Block),
+  data = nodule.data,
+  REML = TRUE
+)
+```
+
+\vspace{8pt}
+
+### Check Nodule Density M x N Model 1 Assumptions
+
+\vspace{8pt}
+
+```{r performance Diagnostics: Nodule Density M x N Model 1 Fit, echo = TRUE, eval = FALSE}
+## Check model convergence
+check_convergence(nodule.density.MN.LMM.1)
+# Model converged
+
+## Check for boundary singularity
+check_singularity(nodule.density.MN.LMM.1)
+# No singularity
+```
+
+\vspace{8pt}
+
+```{r performance Diagnostics: Nodule Density M x N Model 1, echo = TRUE, eval = FALSE}
+## Visual assessment of model diagnostics
+check_model(nodule.density.MN.LMM.1)
+# Visual check = assumptions met
+
+## Check normality of fixed effects (Shapiro-Wilk test)
+check_normality(nodule.density.MN.LMM.1, effects = "fixed")
+# Suggests statistical non-normality of residuals (P < 0.001)
+# Mixed-effects models are robust to this assumption
+
+## Check normality of random effects
+check_normality(nodule.density.MN.LMM.1, effects = "random")
+# M:P = Good
+# N:P = Good
+# M:N:P = Good
+# P = Good
+# B = Good
+
+## Check for non-constant variance of residuals (Breusch-Pagan test)
+check_heteroscedasticity(nodule.density.MN.LMM.1)
+# Heteroscedasticity (non-constant error variance) detected (P < 0.001)
+
+## Check for homogeneity of variance (Bartlett test)
+check_homogeneity(nodule.density.MN.LMM.1)
+# Variances differ between groups (P < 0.001)
+
+## Check for outliers
+check_outliers(nodule.density.MN.LMM.1)
+# 1 outlier detected
+```
+
+
+
+\newpage
+## Nodule Density M x N Model 2
+
+```{r Nodule Density Model Fitting: M x N Model 2, echo = TRUE}
+nodule.density.MN.LMM.2 <- lmer(
+  log(Nodule_Density + 1) ~ Microbiome_Global * Nitrogen
+    + (Microbiome_Global | Population)
+    + (Nitrogen | Population)
+    + (Microbiome_Global:Nitrogen | Population)
+    + (1 | Population)
+    + (1 | Block),
+  data = nodule.data,
+  REML = TRUE
+)
+```
+
+\vspace{8pt}
+
+### Check Nodule Density M x N Model 2 Assumptions
+
+\vspace{8pt}
+
+```{r performance Diagnostics: Nodule Density M x N Model 2 Fit, echo = TRUE, eval = FALSE}
+## Check model convergence
+check_convergence(nodule.density.MN.LMM.2)
+# Model failed to converge
+
+## Check for boundary singularity
+check_singularity(nodule.density.MN.LMM.2)
+# Singularity
+```
+
+\vspace{8pt}
+
+```{r performance Diagnostics: Nodule Density M x N Model 2, echo = TRUE, eval = FALSE}
+## Visual assessment of model diagnostics
+check_model(nodule.density.MN.LMM.2)
+# Visual check = assumptions met
+
+## Check normality of fixed effects (Shapiro-Wilk test)
+check_normality(nodule.density.MN.LMM.2, effects = "fixed")
+# Suggests statistical non-normality of residuals (P < 0.001)
+# Mixed-effects models are robust to this assumption
+
+## Check normality of random effects
+check_normality(nodule.density.MN.LMM.2, effects = "random")
+# M:P = Good
+# N:P = Good
+# M:N:P = Good
+# P = Good
+# B = Good
+
+## Check for non-constant variance of residuals (Breusch-Pagan test)
+check_heteroscedasticity(nodule.density.MN.LMM.2)
+# Heteroscedasticity (non-constant error variance) detected (P < 0.001)
+
+## Check for homogeneity of variance (Bartlett test)
+check_homogeneity(nodule.density.MN.LMM.2)
+# Variances differ between groups (P < 0.001)
+
+## Check for outliers
+check_outliers(nodule.density.MN.LMM.2)
+# 1 outlier detected
+```
+
+
+
+\newpage
+## Nodule Density M x N Model 3
+
+```{r Nodule Density Model Fitting: M x N Model 3, echo = TRUE}
+nodule.density.MN.LMM.3 <- lmer(
+  log(Nodule_Density + 1) ~ Microbiome_Global * Nitrogen
+    + (1 | Population)
+    + (1 | Block),
+  data = nodule.data,
+  REML = TRUE
+)
+```
+
+\vspace{8pt}
+
+### Check Nodule Density M x N Model 3 Assumptions
+
+\vspace{8pt}
+
+```{r performance Diagnostics: Nodule Density M x N Model 3 Fit, echo = TRUE, eval = FALSE}
+## Check model convergence
+check_convergence(nodule.density.MN.LMM.3)
+# Model converged
+
+## Check for boundary singularity
+check_singularity(nodule.density.MN.LMM.3)
+# No singularity
+```
+
+\vspace{8pt}
+
+```{r performance Diagnostics: Nodule Density M x N Model 3, echo = TRUE, eval = FALSE}
+## Visual assessment of model diagnostics
+check_model(nodule.density.MN.LMM.3)
+# Visual check = assumptions met
+
+## Check normality of fixed effects (Shapiro-Wilk test)
+check_normality(nodule.density.MN.LMM.3, effects = "fixed")
+# Suggests statistical non-normality of residuals (P < 0.001)
+# Mixed-effects models are robust to this assumption
+
+## Check normality of random effects
+check_normality(nodule.density.MN.LMM.3, effects = "random")
+# P = Good
+# B = Good
+
+## Check for non-constant variance of residuals (Breusch-Pagan test)
+check_heteroscedasticity(nodule.density.MN.LMM.3)
+# Heteroscedasticity (non-constant error variance) detected (P < 0.001)
+
+## Check for homogeneity of variance (Bartlett test)
+check_homogeneity(nodule.density.MN.LMM.3)
+# Variances differ between groups (P < 0.001)
+
+## Check for outliers
+check_outliers(nodule.density.MN.LMM.3)
+# No outliers detected
+```
+
+
+
+\newpage
+## Nodule Density M x N Model Comparisons
+
+\vspace{8pt}
+
+```{r Nodule Density AIC on Model Set, include = FALSE}
+nodule.density.model.set.AIC.table <- aictab(
+  cand.set = list(
+    nodule.density.MN.LMM.1, nodule.density.MN.LMM.2,
+    nodule.density.MN.LMM.3
+  ),
+  modnames = c("MN_Model_1", "MN_Model_2", "MN_Model_3"),
+  second.ord = TRUE
+)
+```
+
+```{r Nodule Density Model Set AIC Table, echo = FALSE}
+kable(nodule.density.model.set.AIC.table,
+  booktabs = TRUE,
+  digits = 3,
+  caption = "AIC table comparing candidate Nodule Density M x N Models 1-3.",
+  col.names = c(
+    "Model", "K", "AICc", "Delta_AICc", "Model_Likelihood",
+    "AICc_Weight", "Residual_LL", "Summed_Weight"
+  )
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped", "scale_down"))
+```
+
+
+
+\newpage
+## Nodule Density M x N Model 1 Subsets
+
+\vspace{8pt}
+
+### Nodule Density M x N Model 1.1
+
+```{r Nodule Density Model Fitting: M x N Model 1.1, echo TRUE}
+## Remove (1 | Microbiome_Global:Nitrogen:Population)
+nodule.density.MN.LMM.1.1 <- lmer(
+  log(Nodule_Density + 1) ~ Microbiome_Global * Nitrogen
+    + (1 | Microbiome_Global:Population)
+    + (1 | Nitrogen:Population)
+    + (1 | Population)
+    + (1 | Block),
+  data = nodule.data,
+  REML = TRUE
+)
+```
+
+\vspace{8pt}
+
+### Check Nodule Density M x N Model 1.1 Assumptions
+
+\vspace{8pt}
+
+```{r performance Diagnostics: Nodule Density M x N Model 1.1 Fit, echo = TRUE, eval = FALSE}
+## Check model convergence
+check_convergence(nodule.density.MN.LMM.1.1)
+# Model converged
+
+## Check for boundary singularity
+check_singularity(nodule.density.MN.LMM.1.1)
+# No singularity
+```
+
+\vspace{8pt}
+
+```{r performance Diagnostics: Nodule Density M x N Model 1.1, echo = TRUE, eval = FALSE}
+## Visual assessment of model diagnostics
+check_model(nodule.density.MN.LMM.1.1)
+# Visual check = assumptions met
+
+## Check normality of fixed effects (Shapiro-Wilk test)
+check_normality(nodule.density.MN.LMM.1.1, effects = "fixed")
+# Suggests statistical non-normality of residuals (P < 0.001)
+# Mixed-effects models are robust to this assumption
+
+## Check normality of random effects
+check_normality(nodule.density.MN.LMM.1.1, effects = "random")
+# M:P = Good
+# N:P = Good
+# P = Good
+# B = Good
+
+## Check for non-constant variance of residuals (Breusch-Pagan test)
+check_heteroscedasticity(nodule.density.MN.LMM.1.1)
+# Heteroscedasticity (non-constant error variance) detected (P < 0.001)
+
+## Check for homogeneity of variance (Bartlett test)
+check_homogeneity(nodule.density.MN.LMM.1.1)
+# Variances differ between groups (P < 0.001)
+
+## Check for outliers
+check_outliers(nodule.density.MN.LMM.1.1)
+# 1 outlier detected
+```
+
+
+
+\newpage
+### Nodule Density M x N Model 1.2
+
+```{r Nodule Density Model Fitting: M x N Model 1.2, echo TRUE}
+## Remove (1 | Microbiome_Global:Population) and (1 | Microbiome_Global:Nitrogen:Population)
+nodule.density.MN.LMM.1.2 <- lmer(
+  log(Nodule_Density + 1) ~ Microbiome_Global * Nitrogen
+    + (1 | Nitrogen:Population)
+    + (1 | Population)
+    + (1 | Block),
+  data = nodule.data,
+  REML = TRUE
+)
+```
+
+\vspace{8pt}
+
+### Check Nodule Density M x N Model 1.2 Assumptions
+
+\vspace{8pt}
+
+```{r performance Diagnostics: Nodule Density M x N Model 1.2 Fit, echo = TRUE, eval = FALSE}
+## Check model convergence
+check_convergence(nodule.density.MN.LMM.1.2)
+# Model converged
+
+## Check for boundary singularity
+check_singularity(nodule.density.MN.LMM.1.2)
+# No singularity
+```
+
+\vspace{8pt}
+
+```{r performance Diagnostics: Nodule Density M x N Model 1.2, echo = TRUE, eval = FALSE}
+## Visual assessment of model diagnostics
+check_model(nodule.density.MN.LMM.1.2)
+# Visual check = assumptions met
+
+## Check normality of fixed effects (Shapiro-Wilk test)
+check_normality(nodule.density.MN.LMM.1.2, effects = "fixed")
+# Suggests statistical non-normality of residuals (P < 0.001)
+# Mixed-effects models are robust to this assumption
+
+## Check normality of random effects
+check_normality(nodule.density.MN.LMM.1.2, effects = "random")
+# N:P = Good
+# P = Good
+# B = Good
+
+## Check for non-constant variance of residuals (Breusch-Pagan test)
+check_heteroscedasticity(nodule.density.MN.LMM.1.2)
+# Heteroscedasticity (non-constant error variance) detected (P < 0.001)
+
+## Check for homogeneity of variance (Bartlett test)
+check_homogeneity(nodule.density.MN.LMM.1.2)
+# Variances differ between groups (P < 0.001)
+
+## Check for outliers
+check_outliers(nodule.density.MN.LMM.1.2)
+# No outliers detected
+```
+
+
+
+\newpage
+### Nodule Density M x N Model 1.3
+
+```{r Nodule Density Model Fitting: M x N Model 1.3, echo TRUE}
+## Remove (1 | Nitrogen:Population) and (1 | Microbiome_Global:Nitrogen:Population)
+nodule.density.MN.LMM.1.3 <- lmer(
+  log(Nodule_Density + 1) ~ Microbiome_Global * Nitrogen
+    + (1 | Microbiome_Global:Population)
+    + (1 | Population)
+    + (1 | Block),
+  data = nodule.data,
+  REML = TRUE
+)
+```
+
+\vspace{8pt}
+
+### Check Nodule Density M x N Model 1.3 Assumptions
+
+\vspace{8pt}
+
+```{r performance Diagnostics: Nodule Density M x N Model 1.3 Fit, echo = TRUE, eval = FALSE}
+## Check model convergence
+check_convergence(nodule.density.MN.LMM.1.3)
+# Model converged
+
+## Check for boundary singularity
+check_singularity(nodule.density.MN.LMM.1.3)
+# No singularity
+```
+
+\vspace{8pt}
+
+```{r performance Diagnostics: Nodule Density M x N Model 1.3, echo = TRUE, eval = FALSE}
+## Visual assessment of model diagnostics
+check_model(nodule.density.MN.LMM.1.3)
+# Visual check = assumptions met
+
+## Check normality of fixed effects (Shapiro-Wilk test)
+check_normality(nodule.density.MN.LMM.1.3, effects = "fixed")
+# Suggests statistical non-normality of residuals (P < 0.001)
+# Mixed-effects models are robust to this assumption
+
+## Check normality of random effects
+check_normality(nodule.density.MN.LMM.1.3, effects = "random")
+# M:P = Good
+# P = Good
+# B = Good
+
+## Check for non-constant variance of residuals (Breusch-Pagan test)
+check_heteroscedasticity(nodule.density.MN.LMM.1.3)
+# Heteroscedasticity (non-constant error variance) detected (P < 0.001)
+
+## Check for homogeneity of variance (Bartlett test)
+check_homogeneity(nodule.density.MN.LMM.1.3)
+# Variances differ between groups (P < 0.001)
+
+## Check for outliers
+check_outliers(nodule.density.MN.LMM.1.3)
+# No outliers detected
+```
+
+
+
+\newpage
+## Nodule Density M x N Comparisons-Focal Models & Subsets
+
+\vspace{8pt}
+
+```{r Nodule Density AIC on M x N Model 1 and Subsets, include = FALSE}
+nodule.density.model.set.subsets.AIC.table <- aictab(
+  cand.set = list(
+    nodule.density.MN.LMM.3, nodule.density.MN.LMM.1,
+    nodule.density.MN.LMM.1.1, nodule.density.MN.LMM.1.2,
+    nodule.density.MN.LMM.1.3
+  ),
+  modnames = c("MN_Model_3", "MN_Model_1", "MN_Model_1.1", "MN_Model_1.2", "MN_Model_1.3"),
+  second.ord = TRUE
+)
+```
+
+```{r Nodule Density Model Set and Subsets AIC Table, echo = FALSE}
+kable(nodule.density.model.set.subsets.AIC.table,
+  booktabs = TRUE,
+  digits = 3,
+  caption = "AIC table comparing candidate Nodule Density M x N Model 3, Model 1, and Model 1 subsets (Nodule Density M x N Models 1.1-1.3).",
+  col.names = c(
+    "Model", "K", "AICc", "Delta_AICc", "Model_Likelihood",
+    "AICc_Weight", "Residual_LL", "Summed_Weight"
+  )
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped", "scale_down"))
+```
+
+
+
+
+
+\newpage
+# Fixing Nodule Density
+
+\vspace{8pt}
+
+## Fixing Nodule Density M x N Model 1
+
+```{r Fixing Nodule Density Model Fitting: M x N Model 1, echo TRUE}
+fixing.nodule.density.MN.LMM.1 <- lmer(
+  log(Fixing_Nodule_Density + 1) ~ Microbiome_Global * Nitrogen
+    + (1 | Microbiome_Global:Population)
+    + (1 | Nitrogen:Population)
+    + (1 | Microbiome_Global:Nitrogen:Population)
+    + (1 | Population)
+    + (1 | Block),
+  data = nodule.data,
+  REML = TRUE
+)
+```
+
+\vspace{8pt}
+
+### Check Fixing Nodule Density M x N Model 1 Assumptions
+
+\vspace{8pt}
+
+```{r performance Diagnostics: Fixing Nodule Density M x N Model 1 Fit, echo = TRUE, eval = FALSE}
+## Check model convergence
+check_convergence(fixing.nodule.density.MN.LMM.1)
+# Model converged
+
+## Check for boundary singularity
+check_singularity(fixing.nodule.density.MN.LMM.1)
+# No singularity
+```
+
+\vspace{8pt}
+
+```{r performance Diagnostics: Fixing Nodule Density M x N Model 1, echo = TRUE, eval = FALSE}
+## Visual assessment of model diagnostics
+check_model(fixing.nodule.density.MN.LMM.1)
+# Visual check = assumptions met
+
+## Check normality of fixed effects (Shapiro-Wilk test)
+check_normality(fixing.nodule.density.MN.LMM.1, effects = "fixed")
+# Suggests statistical non-normality of residuals (P < 0.001)
+# Mixed-effects models are robust to this assumption
+
+## Check normality of random effects
+check_normality(fixing.nodule.density.MN.LMM.1, effects = "random")
+# M:P = Good
+# N:P = Good
+# M:N:P = Good
+# P = Non-normality detected (P < 0.001)
+# B = Good
+
+## Check for non-constant variance of residuals (Breusch-Pagan test)
+check_heteroscedasticity(fixing.nodule.density.MN.LMM.1)
+# Heteroscedasticity (non-constant error variance) detected (P < 0.001)
+
+## Check for homogeneity of variance (Bartlett test)
+check_homogeneity(fixing.nodule.density.MN.LMM.1)
+# Variances differ between groups (P < 0.001)
+
+## Check for outliers
+check_outliers(fixing.nodule.density.MN.LMM.1)
+# 1 outlier detected
+```
+
+
+
+\newpage
+## Fixing Nodule Density M x N Model 2
+
+```{r Fixing Nodule Density Model Fitting: M x N Model 2, echo = TRUE}
+fixing.nodule.density.MN.LMM.2 <- lmer(
+  log(Fixing_Nodule_Density + 1) ~ Microbiome_Global * Nitrogen
+    + (Microbiome_Global | Population)
+    + (Nitrogen | Population)
+    + (Microbiome_Global:Nitrogen | Population)
+    + (1 | Population)
+    + (1 | Block),
+  data = nodule.data,
+  REML = TRUE
+)
+```
+
+\vspace{8pt}
+
+### Check Fixing Nodule Density M x N Model 2 Assumptions
+
+\vspace{8pt}
+
+```{r performance Diagnostics: Fixing Nodule Density M x N Model 2 Fit, echo = TRUE, eval = FALSE}
+## Check model convergence
+check_convergence(fixing.nodule.density.MN.LMM.2)
+# Model failed to converge
+
+## Check for boundary singularity
+check_singularity(fixing.nodule.density.MN.LMM.2)
+# No singularity
+```
+
+\vspace{8pt}
+
+```{r performance Diagnostics: Fixing Nodule Density M x N Model 2, echo = TRUE, eval = FALSE}
+## Visual assessment of model diagnostics
+check_model(fixing.nodule.density.MN.LMM.2)
+# Visual check = assumptions met
+
+## Check normality of fixed effects (Shapiro-Wilk test)
+check_normality(fixing.nodule.density.MN.LMM.2, effects = "fixed")
+# Suggests statistical non-normality of residuals (P < 0.001)
+# Mixed-effects models are robust to this assumption
+
+## Check normality of random effects
+check_normality(fixing.nodule.density.MN.LMM.2, effects = "random")
+# M:P = Bad
+# N:P = Bad
+# M:N:P = Bad
+# P = Good
+# B = Good
+
+## Check for non-constant variance of residuals (Breusch-Pagan test)
+check_heteroscedasticity(fixing.nodule.density.MN.LMM.2)
+# Heteroscedasticity (non-constant error variance) detected (P < 0.001)
+
+## Check for homogeneity of variance (Bartlett test)
+check_homogeneity(fixing.nodule.density.MN.LMM.2)
+# Variances differ between groups (P < 0.001)
+
+## Check for outliers
+check_outliers(fixing.nodule.density.MN.LMM.2)
+# 2 outliers detected
+```
+
+
+
+\newpage
+## Fixing Nodule Density M x N Model 3
+
+```{r Fixing Nodule Density Model Fitting: M x N Model 3, echo = TRUE}
+fixing.nodule.density.MN.LMM.3 <- lmer(
+  log(Fixing_Nodule_Density + 1) ~ Microbiome_Global * Nitrogen
+    + (1 | Population)
+    + (1 | Block),
+  data = nodule.data,
+  REML = TRUE
+)
+```
+
+\vspace{8pt}
+
+### Check Fixing Nodule Density M x N Model 3 Assumptions
+
+\vspace{8pt}
+
+```{r performance Diagnostics: Fixing Nodule Density M x N Model 3 Fit, echo = TRUE, eval = FALSE}
+## Check model convergence
+check_convergence(fixing.nodule.density.MN.LMM.3)
+# Model converged
+
+## Check for boundary singularity
+check_singularity(fixing.nodule.density.MN.LMM.3)
+# No singularity
+```
+
+\vspace{8pt}
+
+```{r performance Diagnostics: Fixing Nodule Density M x N Model 3, echo = TRUE, eval = FALSE}
+## Visual assessment of model diagnostics
+check_model(fixing.nodule.density.MN.LMM.3)
+# Visual check = assumptions met
+
+## Check normality of fixed effects (Shapiro-Wilk test)
+check_normality(fixing.nodule.density.MN.LMM.3, effects = "fixed")
+# Suggests statistical non-normality of residuals (P < 0.001)
+# Mixed-effects models are robust to this assumption
+
+## Check normality of random effects
+check_normality(fixing.nodule.density.MN.LMM.3, effects = "random")
+# P = Non-normality detected (P < 0.001)
+# B = Good
+
+## Check for non-constant variance of residuals (Breusch-Pagan test)
+check_heteroscedasticity(fixing.nodule.density.MN.LMM.3)
+# Heteroscedasticity (non-constant error variance) detected (P < 0.001)
+
+## Check for homogeneity of variance (Bartlett test)
+check_homogeneity(fixing.nodule.density.MN.LMM.3)
+# Variances differ between groups (P < 0.001)
+
+## Check for outliers
+check_outliers(fixing.nodule.density.MN.LMM.3)
+# 1 outlier detected
+```
+
+
+
+\newpage
+## Fixing Nodule Density M x N Model Comparisons
+
+\vspace{8pt}
+
+```{r Fixing Nodule Density AIC on Model Set, include = FALSE}
+fixing.nodule.density.model.set.AIC.table <- aictab(
+  cand.set = list(
+    fixing.nodule.density.MN.LMM.1, fixing.nodule.density.MN.LMM.2,
+    fixing.nodule.density.MN.LMM.3
+  ),
+  modnames = c("MN_Model_1", "MN_Model_2", "MN_Model_3"),
+  second.ord = TRUE
+)
+```
+
+```{r Fixing Nodule Density Model Set AIC Table, echo = FALSE}
+kable(fixing.nodule.density.model.set.AIC.table,
+  booktabs = TRUE,
+  digits = 3,
+  caption = "AIC table comparing candidate Fixing Nodule Density M x N Models 1-3.",
+  col.names = c(
+    "Model", "K", "AICc", "Delta_AICc", "Model_Likelihood",
+    "AICc_Weight", "Residual_LL", "Summed_Weight"
+  )
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped", "scale_down"))
+```
+
+
+
+\newpage
+## Fixing Nodule Density M x N Model 1 Subsets
+
+\vspace{8pt}
+
+### Fixing Nodule Density M x N Model 1.1
+
+```{r Fixing Nodule Density Model Fitting: M x N Model 1.1, echo TRUE}
+## Remove (1 | Microbiome_Global:Nitrogen:Population)
+fixing.nodule.density.MN.LMM.1.1 <- lmer(
+  log(Fixing_Nodule_Density + 1) ~ Microbiome_Global * Nitrogen
+    + (1 | Microbiome_Global:Population)
+    + (1 | Nitrogen:Population)
+    + (1 | Population)
+    + (1 | Block),
+  data = nodule.data,
+  REML = TRUE
+)
+```
+
+\vspace{8pt}
+
+### Check Fixing Nodule Density M x N Model 1.1 Assumptions
+
+\vspace{8pt}
+
+```{r performance Diagnostics: Fixing Nodule Density M x N Model 1.1 Fit, echo = TRUE, eval = FALSE}
+## Check model convergence
+check_convergence(fixing.nodule.density.MN.LMM.1.1)
+# Model converged
+
+## Check for boundary singularity
+check_singularity(fixing.nodule.density.MN.LMM.1.1)
+# No singularity
+```
+
+\vspace{8pt}
+
+```{r performance Diagnostics: Fixing Nodule Density M x N Model 1.1, echo = TRUE, eval = FALSE}
+## Visual assessment of model diagnostics
+check_model(fixing.nodule.density.MN.LMM.1.1)
+# Visual check = assumptions met
+
+## Check normality of fixed effects (Shapiro-Wilk test)
+check_normality(fixing.nodule.density.MN.LMM.1.1, effects = "fixed")
+# Suggests statistical non-normality of residuals (P < 0.001)
+# Mixed-effects models are robust to this assumption
+
+## Check normality of random effects
+check_normality(fixing.nodule.density.MN.LMM.1.1, effects = "random")
+# M:P = Good
+# N:P = Good
+# P = Non-normality detected (P < 0.001)
+# B = Good
+
+## Check for non-constant variance of residuals (Breusch-Pagan test)
+check_heteroscedasticity(fixing.nodule.density.MN.LMM.1.1)
+# Heteroscedasticity (non-constant error variance) detected (P < 0.001)
+
+## Check for homogeneity of variance (Bartlett test)
+check_homogeneity(fixing.nodule.density.MN.LMM.1.1)
+# Variances differ between groups (P < 0.001)
+
+## Check for outliers
+check_outliers(fixing.nodule.density.MN.LMM.1.1)
+# 1 outlier detected
+```
+
+
+
+\newpage
+### Fixing Nodule Density M x N Model 1.2
+
+```{r Fixing Nodule Density Model Fitting: M x N Model 1.2, echo TRUE}
+## Remove (1 | Microbiome_Global:Population) and (1 | Microbiome_Global:Nitrogen:Population)
+fixing.nodule.density.MN.LMM.1.2 <- lmer(
+  log(Fixing_Nodule_Density + 1) ~ Microbiome_Global * Nitrogen
+    + (1 | Nitrogen:Population)
+    + (1 | Population)
+    + (1 | Block),
+  data = nodule.data,
+  REML = TRUE
+)
+```
+
+\vspace{8pt}
+
+### Check Fixing Nodule Density M x N Model 1.2 Assumptions
+
+\vspace{8pt}
+
+```{r performance Diagnostics: Fixing Nodule Density M x N Model 1.2 Fit, echo = TRUE, eval = FALSE}
+## Check model convergence
+check_convergence(fixing.nodule.density.MN.LMM.1.2)
+# Model converged
+
+## Check for boundary singularity
+check_singularity(fixing.nodule.density.MN.LMM.1.2)
+# No singularity
+```
+
+\vspace{8pt}
+
+```{r performance Diagnostics: Fixing Nodule Density M x N Model 1.2, echo = TRUE, eval = FALSE}
+## Visual assessment of model diagnostics
+check_model(fixing.nodule.density.MN.LMM.1.2)
+# Visual check = assumptions met
+
+## Check normality of fixed effects (Shapiro-Wilk test)
+check_normality(fixing.nodule.density.MN.LMM.1.2, effects = "fixed")
+# Suggests statistical non-normality of residuals (P < 0.001)
+# Mixed-effects models are robust to this assumption
+
+## Check normality of random effects
+check_normality(fixing.nodule.density.MN.LMM.1.2, effects = "random")
+# N:P = Good
+# P = Non-normality detected (P < 0.001)
+# B = Good
+
+## Check for non-constant variance of residuals (Breusch-Pagan test)
+check_heteroscedasticity(fixing.nodule.density.MN.LMM.1.2)
+# Heteroscedasticity (non-constant error variance) detected (P < 0.001)
+
+## Check for homogeneity of variance (Bartlett test)
+check_homogeneity(fixing.nodule.density.MN.LMM.1.2)
+# Variances differ between groups (P < 0.001)
+
+## Check for outliers
+check_outliers(fixing.nodule.density.MN.LMM.1.2)
+# 1 outlier detected
+```
+
+
+
+\newpage
+### Fixing Nodule Density M x N Model 1.3
+
+```{r Fixing Nodule Density Model Fitting: M x N Model 1.3, echo TRUE}
+## Remove (1 | Nitrogen:Population) and (1 | Microbiome_Global:Nitrogen:Population)
+fixing.nodule.density.MN.LMM.1.3 <- lmer(
+  log(Fixing_Nodule_Density + 1) ~ Microbiome_Global * Nitrogen
+    + (1 | Microbiome_Global:Population)
+    + (1 | Population)
+    + (1 | Block),
+  data = nodule.data,
+  REML = TRUE
+)
+```
+
+\vspace{8pt}
+
+### Check Fixing Nodule Density M x N Model 1.3 Assumptions
+
+\vspace{8pt}
+
+```{r performance Diagnostics: Fixing Nodule Density M x N Model 1.3 Fit, echo = TRUE, eval = FALSE}
+## Check model convergence
+check_convergence(fixing.nodule.density.MN.LMM.1.3)
+# Model converged
+
+## Check for boundary singularity
+check_singularity(fixing.nodule.density.MN.LMM.1.3)
+# No singularity
+```
+
+\vspace{8pt}
+
+```{r performance Diagnostics: Fixing Nodule Density M x N Model 1.3, echo = TRUE, eval = FALSE}
+## Visual assessment of model diagnostics
+check_model(fixing.nodule.density.MN.LMM.1.3)
+# Visual check = assumptions met
+
+## Check normality of fixed effects (Shapiro-Wilk test)
+check_normality(fixing.nodule.density.MN.LMM.1.3, effects = "fixed")
+# Suggests statistical non-normality of residuals (P < 0.001)
+# Mixed-effects models are robust to this assumption
+
+## Check normality of random effects
+check_normality(fixing.nodule.density.MN.LMM.1.3, effects = "random")
+# M:P = Good
+# P = Non-normality detected (P < 0.001)
+# B = Good
+
+## Check for non-constant variance of residuals (Breusch-Pagan test)
+check_heteroscedasticity(fixing.nodule.density.MN.LMM.1.3)
+# Heteroscedasticity (non-constant error variance) detected (P < 0.001)
+
+## Check for homogeneity of variance (Bartlett test)
+check_homogeneity(fixing.nodule.density.MN.LMM.1.3)
+# Variances differ between groups (P < 0.001)
+
+## Check for outliers
+check_outliers(fixing.nodule.density.MN.LMM.1.3)
+# 1 outlier detected
+```
+
+
+
+\newpage
+## Fixing Nodule Density M x N Comparisons-Focal Models & Subsets
+
+\vspace{8pt}
+
+```{r Fixing Nodule Density AIC on M x N Model 1 and Subsets, include = FALSE}
+fixing.nodule.density.model.set.subsets.AIC.table <- aictab(
+  cand.set = list(
+    fixing.nodule.density.MN.LMM.3, fixing.nodule.density.MN.LMM.1,
+    fixing.nodule.density.MN.LMM.1.1, fixing.nodule.density.MN.LMM.1.2,
+    fixing.nodule.density.MN.LMM.1.3
+  ),
+  modnames = c("MN_Model_3", "MN_Model_1", "MN_Model_1.1", "MN_Model_1.2", "MN_Model_1.3"),
+  second.ord = TRUE
+)
+```
+
+```{r Fixing Nodule Density Model Set and Subsets AIC Table, echo = FALSE}
+kable(fixing.nodule.density.model.set.subsets.AIC.table,
+  booktabs = TRUE,
+  digits = 3,
+  caption = "AIC table comparing candidate Fixing Nodule Density M x N Model 3, Model 1, and Model 1 subsets (Fixing Nodule Density M x N Models 1.1-1.3).",
+  col.names = c(
+    "Model", "K", "AICc", "Delta_AICc", "Model_Likelihood",
+    "AICc_Weight", "Residual_LL", "Summed_Weight"
+  )
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped", "scale_down"))
+```
+
+
+
+
+
+
+
+
+
+
+```{r Save the Workspace, include = FALSE}
+save.image("data_analysis/1-microbiome_x_nitrogen-model_fitting/M_x_N-global_model_fitting-workspace.RData")
+```
+
+
+
+
+
+
+
+
+
+
+\newpage
+# R Session Information
+
+```{r R Packages, echo = FALSE}
+df_session_packages <- devtools::session_info()$packages %>%
+  as.data.frame(.) %>%
+  filter(attached == TRUE) %>%
+  dplyr::select(loadedversion, date) %>%
+  rownames_to_column()
+
+colnames(df_session_packages) <- c("Package", "Loaded Version", "Date")
+
+kable(
+  df_session_packages,
+  booktabs = TRUE,
+  caption = "Packages required for data management and analysis."
+) %>%
+  kable_styling(
+    full_width = FALSE,
+    latex_options = c("HOLD_position", "striped")
+  )
+```

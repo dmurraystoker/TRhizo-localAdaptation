@@ -1,0 +1,2765 @@
+---
+title: "TRhizo-localAdaptation"
+subtitle: "Microbiome Analyses"
+author: "David Murray-Stoker"
+output:
+  pdf_document:
+    toc: true
+    toc_depth: 4
+    fig_caption: yes
+    latex_engine: xelatex
+always_allow_html: true
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+knitr::opts_chunk$set(results = "hold", fig.pos = "H", fig.align = "center", out.width = "92.5%")
+options(knitr.graphics.error = FALSE)
+kableExtra::usepackage_latex("float")
+```
+
+```{r Load Packages for R Markdown, include = FALSE}
+library(kableExtra)
+library(knitr)
+```
+
+
+
+
+
+\newpage
+# Load Packages & Data
+
+```{r Load Packages & Data, echo = TRUE, results = "hide"}
+## Load the tidyverse
+library(tidyverse)
+
+## Packages for analyses
+library(broom)
+library(car)
+library(easystats)
+library(emmeans)
+library(phyloseq)
+library(tidyamplicons)
+library(vegan)
+```
+
+
+
+
+
+\newpage
+# Load Data
+
+```{r Load Data, echo = TRUE}
+## Load the data
+# Root fitness variables
+root.fitness.variable.data <- read_csv(
+  "data/localAdaptation-microbiome_data-root.csv",
+  show_col_types = FALSE
+) %>%
+  select(UID, Population, Microbiome:Fixing_Nodule_Density)
+
+# Root microbiome data
+root.microbiome.sample.data <- read_csv(
+  "data/localAdaptation-microbiome_data-root.csv",
+  show_col_types = FALSE
+) %>%
+  select(Sequence_ID, UID, Population, Microbiome, Nitrogen)
+
+# Soil local adaptation BLUPs
+# Aboveground biomass
+aboveground.biomass.uncleaned.BLUPs <- read_rds(
+  file = "data/aboveground_biomass_uncleaned_BLUPs.rds"
+)
+# Belowground biomass
+belowground.biomass.uncleaned.BLUPs <- read_rds(
+  file = "data/belowground_biomass_uncleaned_BLUPs.rds"
+)
+# Nodule density
+nodule.density.uncleaned.BLUPs <- read_rds(
+  file = "data/nodule_density_uncleaned_BLUPs.rds"
+)
+# Fixing nodule density
+fixing.nodule.density.uncleaned.BLUPs <- read_rds(
+  file = "data/fixing_nodule_density_uncleaned_BLUPs.rds"
+)
+
+# Soil microbiome data
+soil.microbiome.sample.data <- read_csv(
+  "data/localAdaptation-microbiome_data-soil.csv",
+  show_col_types = FALSE
+) %>%
+  select(Sequence_ID, Population, Inoculant_Type)
+
+# ASV data
+root.ASV.table <- read_rds("data_analysis/8-microbiome_analyses/root_ASV_abundance_table.rds")
+soil.ASV.table <- read_rds("data_analysis/8-microbiome_analyses/soil_ASV_abundance_table.rds")
+
+# Taxonomy tables
+root.taxonomy.table <- read_rds("data_analysis/8-microbiome_analyses/root_ASV_taxonomy_table.rds")
+soil.taxonomy.table <- read_rds("data_analysis/8-microbiome_analyses/soil_ASV_taxonomy_table.rds")
+
+## Add re-coded Microbiome variable to calculate global nonlocal effects
+# Fitness variables
+root.fitness.variable.data$Microbiome_Global <- (
+  if_else(root.fitness.variable.data$Microbiome == "Local", "Local", "Nonlocal_Global")
+)
+
+# Root microbiome data
+root.microbiome.sample.data$Microbiome_Global <- (
+  if_else(root.microbiome.sample.data$Microbiome == "Local", "Local", "Nonlocal_Global", "NULL")
+)
+
+## Set function to calculate relative abundances
+relative_abundance <- function(x) {
+  x / sum(x)
+}
+```
+
+
+
+
+
+\newpage
+# phyloseq & tidyamplicons Processing
+
+## Root
+
+```{r Set root Phyloseq & Tidyamplicon Objects, echo = TRUE, results = "hide"}
+## Set sample metadata
+# Sample and treatment identifiers
+root.sample.metadata <- root.microbiome.sample.data %>%
+  select(UID, Population, Microbiome, Nitrogen)
+# Set row names for phyloseq processing
+rownames(root.sample.metadata) <- root.microbiome.sample.data$Sequence_ID
+
+## Set phyloseq components
+# ASV
+root.ASV.table.phyloseq <- otu_table(root.ASV.table, taxa_are_rows = FALSE)
+# Taxonomy
+root.taxonomy.table.phyloseq <- tax_table(root.taxonomy.table)
+# Sample data
+root.sample.data.phyloseq <- sample_data(root.sample.metadata)
+rownames(root.sample.data.phyloseq) <- root.microbiome.sample.data$Sequence_ID
+
+## Set the reference phyloseq object
+root.phyloseq.reference <- phyloseq(
+  otu_table(root.ASV.table.phyloseq, taxa_are_rows = FALSE),
+  sample_data(root.sample.data.phyloseq),
+  tax_table(root.taxonomy.table.phyloseq)
+) %>%
+  subset_taxa(Kingdom == "Bacteria")
+
+## Get the number of reads per sample
+# Set sample metadata for correct merging
+root.sample.reads.metadata <- root.sample.metadata %>%
+  rownames_to_column(var = "Sequence_ID")
+# Get the number of reads and merge with sample data
+root.sample.reads <- sample_sums(root.phyloseq.reference) %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "Sequence_ID") %>%
+  rename(Root_Sample_Reads = 2) %>%
+  as_tibble() %>%
+  full_join(root.sample.reads.metadata, by = "Sequence_ID")
+
+## Convert the phyloseq reference to tidyamplicons
+root.tidyamplicon.base.microbiome.data <- as_tidyamplicons(root.phyloseq.reference)
+```
+
+
+
+
+
+\newpage
+## Soil
+
+```{r Set Phyloseq & Tidyamplicon Objects, echo = TRUE, results = "hide"}
+## Set sample metadata
+# Sample and treatment identifiers
+soil.sample.metadata <- soil.microbiome.sample.data %>%
+  select(Population, Inoculant_Type)
+# Set row names for phyloseq processing
+rownames(soil.sample.metadata) <- soil.microbiome.sample.data$Sequence_ID
+
+## Set phyloseq components
+# ASV
+soil.ASV.table.phyloseq <- otu_table(soil.ASV.table, taxa_are_rows = FALSE)
+# Taxonomy
+soil.taxonomy.table.phyloseq <- tax_table(soil.taxonomy.table)
+# Sample data
+soil.sample.data.phyloseq <- sample_data(soil.sample.metadata)
+rownames(soil.sample.data.phyloseq) <- soil.microbiome.sample.data$Sequence_ID
+
+## Set the reference phyloseq object
+soil.phyloseq.reference <- phyloseq(
+  otu_table(soil.ASV.table.phyloseq, taxa_are_rows = FALSE),
+  sample_data(soil.sample.data.phyloseq),
+  tax_table(soil.taxonomy.table.phyloseq)
+)
+
+## Get the number of reads per sample
+# Set sample metadata for correct merging
+soil.sample.reads.metadata <- soil.sample.metadata %>%
+  rownames_to_column(var = "Sequence_ID")
+# Get the number of reads and merge with sample data
+soil.sample.reads <- sample_sums(soil.phyloseq.reference) %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "Sequence_ID") %>%
+  rename(Soil_Sample_Reads = 2) %>%
+  as_tibble() %>%
+  full_join(soil.sample.reads.metadata, by = "Sequence_ID")
+
+## Convert the phyloseq reference to tidyamplicons
+soil.tidyamplicon.base.microbiome.data <- as_tidyamplicons(soil.phyloseq.reference)
+```
+
+
+
+
+
+\newpage
+# Fitness & Rhizobia Abundances
+
+## Data Management
+
+Note: summed abundances and relative abundances across all ASVs identified to Rhizobium in the sample
+
+```{r Fitness & Rhizobia: Data Management, echo = TRUE}
+## Add relative abundances
+root.tidyamplicon.base.microbiome.data <- add_rel_abundance(root.tidyamplicon.base.microbiome.data)
+
+## Root abundances
+root.abundances <- abundances(root.tidyamplicon.base.microbiome.data)
+
+## Root taxa
+root.taxa <- taxa(root.tidyamplicon.base.microbiome.data)
+
+## Set tibble of abundances of only Rhizobium
+root.fitness.by.rhizobium.data <- root.abundances %>%
+  full_join(root.taxa, by = "taxon_id") %>%
+  full_join(root.tidyamplicon.base.microbiome.data$samples, by = "sample_id") %>%
+  filter(genus == "Rhizobium") %>%
+  select(UID, sample, Population:Nitrogen, genus, abundance, rel_abundance) %>%
+  rename(Sequence_ID = sample, Genus = genus, Abundance = abundance, Relative_Abundance = rel_abundance) %>%
+  group_by(Population, Microbiome, Nitrogen) %>%
+  summarise(
+    Summed_Abundance = sum(Abundance),
+    Summed_Relative_Abundance = sum(Relative_Abundance),
+    .groups = "keep"
+  ) %>%
+  full_join(
+    select(root.fitness.variable.data, Population:Microbiome_Global),
+    by = c("Population", "Microbiome", "Nitrogen")
+  ) %>%
+  full_join(
+    root.sample.reads,
+    by = c("Population", "Microbiome", "Nitrogen")
+  ) %>%
+  select(
+    Sequence_ID, UID, Population:Nitrogen, Root_Sample_Reads, Summed_Abundance:Microbiome_Global
+  )
+
+## Export data for figures
+write_rds(
+  root.fitness.by.rhizobium.data,
+  file = "data/fitness_by_rhizobia_data.rds"
+)
+```
+
+
+
+
+
+\newpage
+## Aboveground Biomass
+
+### Fit the Linear Models
+
+```{r Aboveground Biomass & Rhizobia: Linear Model Fitting, echo = TRUE}
+## Fit the aboveground biomass by rhizobium abundance linear model
+aboveground.biomass.by.rhizobium.LM <- lm(
+  log(Aboveground_Biomass) ~ Summed_Abundance * Nitrogen + Root_Sample_Reads,
+  data = root.fitness.by.rhizobium.data
+)
+
+## Fit the aboveground biomass by rhizobium relative abundance linear model
+aboveground.biomass.by.rhizobium.RA.LM <- lm(
+  log(Aboveground_Biomass) ~ Summed_Relative_Abundance * Nitrogen + Root_Sample_Reads,
+  data = root.fitness.by.rhizobium.data
+)
+```
+
+
+
+### Check Model Assumptions
+
+```{r performance Diagnostics: Aboveground Biomass & Rhizobia Abundance Model, echo = TRUE, eval = FALSE}
+## Visual assessment of model diagnostics
+check_model(aboveground.biomass.by.rhizobium.LM)
+# Visual check = assumptions met
+
+## Check normality of predictors (Shapiro-Wilk test)
+check_normality(aboveground.biomass.by.rhizobium.LM)
+# Normality of residuals (P = 0.163)
+
+## Check for non-constant variance of residuals (i.e., heteroscedasticity)
+check_heteroscedasticity(aboveground.biomass.by.rhizobium.LM)
+# No statistical evidence for heteroscedasticity (P = 0.446)
+
+## Check for outliers
+check_outliers(aboveground.biomass.by.rhizobium.LM)
+# 1 outlier detected
+```
+
+\vspace{10pt}
+
+```{r performance Diagnostics: Aboveground Biomass & Rhizobia Relative Abundance Model, echo = TRUE, eval = FALSE}
+## Visual assessment of model diagnostics
+check_model(aboveground.biomass.by.rhizobium.RA.LM)
+# Visual check = assumptions met
+
+## Check normality of predictors (Shapiro-Wilk test)
+check_normality(aboveground.biomass.by.rhizobium.RA.LM)
+# Normality of residuals (P = 0.204)
+
+## Check for non-constant variance of residuals (i.e., heteroscedasticity)
+check_heteroscedasticity(aboveground.biomass.by.rhizobium.RA.LM)
+# No statistical evidence for heteroscedasticity (P = 0.480)
+
+## Check for outliers
+check_outliers(aboveground.biomass.by.rhizobium.RA.LM)
+# No outliers detected
+```
+
+
+
+\newpage
+### ANOVAs
+
+```{r ANOVAs: Aboveground Biomass by Rhizobia Abundance, echo = TRUE}
+## Fit ANOVAs with Type III sums-of-squares
+# Aboveground biomass by rhizobium abundance linear model
+aboveground.biomass.by.rhizobium.LM.ANOVA <- Anova(
+  mod = aboveground.biomass.by.rhizobium.LM,
+  type = "III",
+  test.statistic = "F",
+  contrasts = list(topic = contr.sum, sys = contr.sum)
+)
+
+# Aboveground biomass by rhizobium relative abundance linear model
+aboveground.biomass.by.rhizobium.RA.LM.ANOVA <- Anova(
+  mod = aboveground.biomass.by.rhizobium.RA.LM,
+  type = "III",
+  test.statistic = "F",
+  contrasts = list(topic = contr.sum, sys = contr.sum)
+)
+```
+
+\vspace{10pt}
+
+```{r ANOVA Table: Aboveground Biomass by Rhizobia Abundance, echo = FALSE}
+kable(
+  aboveground.biomass.by.rhizobium.LM.ANOVA,
+  booktabs = TRUE,
+  digits = 3,
+  caption = "ANOVA table for the aboveground biomass by rhizobium abundance and nitrogen treatment, with the number of reads as a covariate.",
+  col.names = c("Sums-of-Squares", "df", "F", "P-value")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{10pt}
+
+```{r ANOVA Table: Aboveground Biomass by Rhizobia Relative Abundance, echo = FALSE}
+kable(
+  aboveground.biomass.by.rhizobium.RA.LM.ANOVA,
+  booktabs = TRUE,
+  digits = 3,
+  caption = "ANOVA table for the aboveground biomass by rhizobium abundance and nitrogen treatment, with the number of reads as a covariate.",
+  col.names = c("Sums-of-Squares", "df", "F", "P-value")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+
+
+\newpage
+### Effect Sizes
+
+```{r Partial Eta-Squared: Aboveground Biomass by Rhizobia Abundance, include = FALSE}
+## Calculating partial eta-squared for each factor in the ANOVAs
+# Aboveground biomass by rhizobium abundance linear model
+aboveground.biomass.by.rhizobium.LM.eta.squared <- eta_squared(
+  aboveground.biomass.by.rhizobium.LM.ANOVA,
+  partial = TRUE
+)
+
+# Aboveground biomass by rhizobium relative abundance linear model
+aboveground.biomass.by.rhizobium.RA.LM.eta.squared <- eta_squared(
+  aboveground.biomass.by.rhizobium.RA.LM.ANOVA,
+  partial = TRUE
+)
+```
+
+\vspace{10pt}
+
+```{r Effect Size Table: Aboveground Biomass by Rhizobia Abundance Model, echo = FALSE}
+kable(
+  aboveground.biomass.by.rhizobium.LM.eta.squared,
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Table of effect sizes for the terms in the aboveground biomass by rhizobium abundance model.",
+  col.names = c("Term", "Partial eta-squared", "CI", "CI Low", "CI High")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{10pt}
+
+```{r Effect Size Table: Aboveground Biomass by Rhizobia Relative Abundance Model, echo = FALSE}
+kable(
+  aboveground.biomass.by.rhizobium.RA.LM.eta.squared,
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Table of effect sizes for the terms in the aboveground biomass by rhizobium relative abundance model.",
+  col.names = c("Term", "Partial eta-squared", "CI", "CI Low", "CI High")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+
+
+
+
+\newpage
+## Belowground Biomass
+
+```{r Belowground Biomass & Rhizobia: Linear Model Fitting, echo = TRUE}
+## Fit the belowground biomass by rhizobium abundance linear model
+belowground.biomass.by.rhizobium.LM <- lm(
+  log(Belowground_Biomass) ~ Summed_Abundance * Nitrogen + Root_Sample_Reads,
+  data = root.fitness.by.rhizobium.data
+)
+
+## Fit the belowground biomass by rhizobium relative abundance linear model
+belowground.biomass.by.rhizobium.RA.LM <- lm(
+  log(Belowground_Biomass) ~ Summed_Relative_Abundance * Nitrogen + Root_Sample_Reads,
+  data = root.fitness.by.rhizobium.data
+)
+```
+
+
+
+### Check Model Assumptions
+
+```{r performance Diagnostics: Belowground Biomass & Rhizobia Abundance Model, echo = TRUE, eval = FALSE}
+## Visual assessment of model diagnostics
+check_model(belowground.biomass.by.rhizobium.LM)
+# Visual check = assumptions met
+
+## Check normality of predictors (Shapiro-Wilk test)
+check_normality(belowground.biomass.by.rhizobium.LM)
+# Normality of residuals (P = 0.487)
+
+## Check for non-constant variance of residuals (i.e., heteroscedasticity)
+check_heteroscedasticity(belowground.biomass.by.rhizobium.LM)
+# No statistical evidence for heteroscedasticity (P = 0.061)
+
+## Check for outliers
+check_outliers(belowground.biomass.by.rhizobium.LM)
+# No outliers detected
+```
+
+\vspace{10pt}
+
+```{r performance Diagnostics: Belowground Biomass & Rhizobia Relative Abundance Model, echo = TRUE, eval = FALSE}
+## Visual assessment of model diagnostics
+check_model(belowground.biomass.by.rhizobium.RA.LM)
+# Visual check = assumptions met
+
+## Check normality of predictors (Shapiro-Wilk test)
+check_normality(belowground.biomass.by.rhizobium.RA.LM)
+# Normality of residuals (P = 0.450)
+
+## Check for non-constant variance of residuals (i.e., heteroscedasticity)
+check_heteroscedasticity(belowground.biomass.by.rhizobium.RA.LM)
+# Statistical evidence for heteroscedasticity (P = 0.045)
+
+## Check for outliers
+check_outliers(belowground.biomass.by.rhizobium.RA.LM)
+# No outliers detected
+```
+
+
+
+\newpage
+### ANOVAs
+
+```{r ANOVAs: Belowground Biomass by Rhizobia Abundance, echo = TRUE}
+## Fit ANOVAs with Type III sums-of-squares
+# Aboveground biomass by rhizobium abundance linear model
+belowground.biomass.by.rhizobium.LM.ANOVA <- Anova(
+  mod = belowground.biomass.by.rhizobium.LM,
+  type = "III",
+  test.statistic = "F",
+  contrasts = list(topic = contr.sum, sys = contr.sum)
+)
+
+# Aboveground biomass by rhizobium relative abundance linear model
+belowground.biomass.by.rhizobium.RA.LM.ANOVA <- Anova(
+  mod = belowground.biomass.by.rhizobium.RA.LM,
+  type = "III",
+  test.statistic = "F",
+  contrasts = list(topic = contr.sum, sys = contr.sum)
+)
+```
+
+\vspace{10pt}
+
+```{r ANOVA Table: Belowground Biomass by Rhizobia Abundance, echo = FALSE}
+kable(
+  belowground.biomass.by.rhizobium.LM.ANOVA,
+  booktabs = TRUE,
+  digits = 3,
+  caption = "ANOVA table for the belowground biomass by rhizobium abundance and nitrogen treatment, with the number of reads as a covariate.",
+  col.names = c("Sums-of-Squares", "df", "F", "P-value")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{10pt}
+
+```{r ANOVA Table: Belowground Biomass by Rhizobia Relative Abundance, echo = FALSE}
+kable(
+  belowground.biomass.by.rhizobium.RA.LM.ANOVA,
+  booktabs = TRUE,
+  digits = 3,
+  caption = "ANOVA table for the belowground biomass by rhizobium abundance and nitrogen treatment, with the number of reads as a covariate.",
+  col.names = c("Sums-of-Squares", "df", "F", "P-value")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+
+
+\newpage
+### Effect Sizes
+
+```{r Partial Eta-Squared: Belowground Biomass by Rhizobia Abundance, include = FALSE}
+## Calculating partial eta-squared for each factor in the ANOVAs
+# Aboveground biomass by rhizobium abundance linear model
+belowground.biomass.by.rhizobium.LM.eta.squared <- eta_squared(
+  belowground.biomass.by.rhizobium.LM.ANOVA,
+  partial = TRUE
+)
+
+# Aboveground biomass by rhizobium relative abundance linear model
+belowground.biomass.by.rhizobium.RA.LM.eta.squared <- eta_squared(
+  belowground.biomass.by.rhizobium.RA.LM.ANOVA,
+  partial = TRUE
+)
+```
+
+\vspace{10pt}
+
+```{r Effect Size Table: Belowground Biomass by Rhizobia Abundance Model, echo = FALSE}
+kable(
+  belowground.biomass.by.rhizobium.LM.eta.squared,
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Table of effect sizes for the terms in the belowground biomass by rhizobium abundance model.",
+  col.names = c("Term", "Partial eta-squared", "CI", "CI Low", "CI High")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{10pt}
+
+```{r Effect Size Table: Belowground Biomass by Rhizobia Relative Abundance Model, echo = FALSE}
+kable(
+  belowground.biomass.by.rhizobium.RA.LM.eta.squared,
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Table of effect sizes for the terms in the belowground biomass by rhizobium relative abundance model.",
+  col.names = c("Term", "Partial eta-squared", "CI", "CI Low", "CI High")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+
+
+
+
+\newpage
+## Nodule Density
+
+```{r Nodule Density & Rhizobia: Linear Model Fitting, echo = TRUE}
+## Fit the nodule density by rhizobium abundance linear model
+nodule.density.by.rhizobium.LM <- lm(
+  log(Nodule_Density + 1) ~ Summed_Abundance * Nitrogen + Root_Sample_Reads,
+  data = root.fitness.by.rhizobium.data
+)
+
+## Fit the nodule density by rhizobium relative abundance linear model
+nodule.density.by.rhizobium.RA.LM <- lm(
+  log(Nodule_Density + 1) ~ Summed_Relative_Abundance * Nitrogen + Root_Sample_Reads,
+  data = root.fitness.by.rhizobium.data
+)
+```
+
+
+
+### Check Model Assumptions
+
+```{r performance Diagnostics: Nodule Density & Rhizobia Abundance Model, echo = TRUE, eval = FALSE}
+## Visual assessment of model diagnostics
+check_model(nodule.density.by.rhizobium.LM)
+# Visual check = assumptions met
+
+## Check normality of predictors (Shapiro-Wilk test)
+check_normality(nodule.density.by.rhizobium.LM)
+# Normality of residuals (P = 0.161)
+
+## Check for non-constant variance of residuals (i.e., heteroscedasticity)
+check_heteroscedasticity(nodule.density.by.rhizobium.LM)
+# No statistical evidence for heteroscedasticity (P = 0.213)
+
+## Check for outliers
+check_outliers(nodule.density.by.rhizobium.LM)
+# No outliers detected
+```
+
+\vspace{10pt}
+
+```{r performance Diagnostics: Nodule Density & Rhizobia Relative Abundance Model, echo = TRUE, eval = FALSE}
+## Visual assessment of model diagnostics
+check_model(nodule.density.by.rhizobium.RA.LM)
+# Visual check = assumptions met
+
+## Check normality of predictors (Shapiro-Wilk test)
+check_normality(nodule.density.by.rhizobium.RA.LM)
+# Non-normality of residuals detected (P = 0.042)
+
+## Check for non-constant variance of residuals (i.e., heteroscedasticity)
+check_heteroscedasticity(nodule.density.by.rhizobium.RA.LM)
+# No statistical evidence for heteroscedasticity (P = 0.127)
+
+## Check for outliers
+check_outliers(nodule.density.by.rhizobium.RA.LM)
+# No outliers detected
+```
+
+
+
+\newpage
+### ANOVAs
+
+```{r ANOVAs: Nodule Density by Rhizobia Abundance, echo = TRUE}
+## Fit ANOVAs with Type III sums-of-squares
+# Aboveground biomass by rhizobium abundance linear model
+nodule.density.by.rhizobium.LM.ANOVA <- Anova(
+  mod = nodule.density.by.rhizobium.LM,
+  type = "III",
+  test.statistic = "F",
+  contrasts = list(topic = contr.sum, sys = contr.sum)
+)
+
+# Aboveground biomass by rhizobium relative abundance linear model
+nodule.density.by.rhizobium.RA.LM.ANOVA <- Anova(
+  mod = nodule.density.by.rhizobium.RA.LM,
+  type = "III",
+  test.statistic = "F",
+  contrasts = list(topic = contr.sum, sys = contr.sum)
+)
+```
+
+\vspace{10pt}
+
+```{r ANOVA Table: Nodule Density by Rhizobia Abundance, echo = FALSE}
+kable(
+  nodule.density.by.rhizobium.LM.ANOVA,
+  booktabs = TRUE,
+  digits = 3,
+  caption = "ANOVA table for the nodule density by rhizobium abundance and nitrogen treatment, with the number of reads as a covariate.",
+  col.names = c("Sums-of-Squares", "df", "F", "P-value")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{10pt}
+
+```{r ANOVA Table: Nodule Density by Rhizobia Relative Abundance, echo = FALSE}
+kable(
+  nodule.density.by.rhizobium.RA.LM.ANOVA,
+  booktabs = TRUE,
+  digits = 3,
+  caption = "ANOVA table for the nodule density by rhizobium abundance and nitrogen treatment, with the number of reads as a covariate.",
+  col.names = c("Sums-of-Squares", "df", "F", "P-value")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+
+
+\newpage
+### Effect Sizes
+
+```{r Partial Eta-Squared: Nodule Density by Rhizobia Abundance, include = FALSE}
+## Calculating partial eta-squared for each factor in the ANOVAs
+# Aboveground biomass by rhizobium abundance linear model
+nodule.density.by.rhizobium.LM.eta.squared <- eta_squared(
+  nodule.density.by.rhizobium.LM.ANOVA,
+  partial = TRUE
+)
+
+# Aboveground biomass by rhizobium relative abundance linear model
+nodule.density.by.rhizobium.RA.LM.eta.squared <- eta_squared(
+  nodule.density.by.rhizobium.RA.LM.ANOVA,
+  partial = TRUE
+)
+```
+
+\vspace{10pt}
+
+```{r Effect Size Table: Nodule Density by Rhizobia Abundance Model, echo = FALSE}
+kable(
+  nodule.density.by.rhizobium.LM.eta.squared,
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Table of effect sizes for the terms in the nodule density by rhizobium abundance model.",
+  col.names = c("Term", "Partial eta-squared", "CI", "CI Low", "CI High")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{10pt}
+
+```{r Effect Size Table: Nodule Density by Rhizobia Relative Abundance Model, echo = FALSE}
+kable(
+  nodule.density.by.rhizobium.RA.LM.eta.squared,
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Table of effect sizes for the terms in the nodule density by rhizobium relative abundance model.",
+  col.names = c("Term", "Partial eta-squared", "CI", "CI Low", "CI High")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+
+
+
+
+\newpage
+## Fixing Nodule Density
+
+```{r Fixing Nodule Density & Rhizobia: Linear Model Fitting, echo = TRUE}
+## Fit the fixing nodule density by rhizobium abundance linear model
+fixing.nodule.density.by.rhizobium.LM <- lm(
+  log(Fixing_Nodule_Density + 1) ~ Summed_Abundance * Nitrogen + Root_Sample_Reads,
+  data = root.fitness.by.rhizobium.data
+)
+
+## Fit the fixing nodule density by rhizobium relative abundance linear model
+fixing.nodule.density.by.rhizobium.RA.LM <- lm(
+  log(Fixing_Nodule_Density + 1) ~ Summed_Relative_Abundance * Nitrogen + Root_Sample_Reads,
+  data = root.fitness.by.rhizobium.data
+)
+```
+
+
+
+### Check Model Assumptions
+
+```{r performance Diagnostics: Fixing Nodule Density & Rhizobia Abundance Model, echo = TRUE, eval = FALSE}
+## Visual assessment of model diagnostics
+check_model(fixing.nodule.density.by.rhizobium.LM)
+# Visual check = assumptions met
+
+## Check normality of predictors (Shapiro-Wilk test)
+check_normality(fixing.nodule.density.by.rhizobium.LM)
+# Non-normality of residuals detected (P < 0.001)
+
+## Check for non-constant variance of residuals (i.e., heteroscedasticity)
+check_heteroscedasticity(fixing.nodule.density.by.rhizobium.LM)
+# No statistical evidence for heteroscedasticity (P = 0.210)
+
+## Check for outliers
+check_outliers(fixing.nodule.density.by.rhizobium.LM)
+# No outliers detected
+```
+
+\vspace{10pt}
+
+```{r performance Diagnostics: Fixing Nodule Density & Rhizobia Relative Abundance Model, echo = TRUE, eval = FALSE}
+## Visual assessment of model diagnostics
+check_model(fixing.nodule.density.by.rhizobium.RA.LM)
+# Visual check = assumptions met
+
+## Check normality of predictors (Shapiro-Wilk test)
+check_normality(fixing.nodule.density.by.rhizobium.RA.LM)
+# Non-normality of residuals detected (P < 0.001)
+
+## Check for non-constant variance of residuals (i.e., heteroscedasticity)
+check_heteroscedasticity(fixing.nodule.density.by.rhizobium.RA.LM)
+# No statistical evidence for heteroscedasticity (P = 0.574)
+
+## Check for outliers
+check_outliers(fixing.nodule.density.by.rhizobium.RA.LM)
+# No outliers detected
+```
+
+
+
+\newpage
+### ANOVAs
+
+```{r ANOVAs: Fixing Nodule Density by Rhizobia Abundance, echo = TRUE}
+## Fit ANOVAs with Type III sums-of-squares
+# Aboveground biomass by rhizobium abundance linear model
+fixing.nodule.density.by.rhizobium.LM.ANOVA <- Anova(
+  mod = fixing.nodule.density.by.rhizobium.LM,
+  type = "III",
+  test.statistic = "F",
+  contrasts = list(topic = contr.sum, sys = contr.sum)
+)
+
+# Aboveground biomass by rhizobium relative abundance linear model
+fixing.nodule.density.by.rhizobium.RA.LM.ANOVA <- Anova(
+  mod = fixing.nodule.density.by.rhizobium.RA.LM,
+  type = "III",
+  test.statistic = "F",
+  contrasts = list(topic = contr.sum, sys = contr.sum)
+)
+```
+
+\vspace{10pt}
+
+```{r ANOVA Table: Fixing Nodule Density by Rhizobia Abundance, echo = FALSE}
+kable(
+  fixing.nodule.density.by.rhizobium.LM.ANOVA,
+  booktabs = TRUE,
+  digits = 3,
+  caption = "ANOVA table for the fixing nodule density by rhizobium abundance and nitrogen treatment, with the number of reads as a covariate.",
+  col.names = c("Sums-of-Squares", "df", "F", "P-value")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{10pt}
+
+```{r ANOVA Table: Fixing Nodule Density by Rhizobia Relative Abundance, echo = FALSE}
+kable(
+  fixing.nodule.density.by.rhizobium.RA.LM.ANOVA,
+  booktabs = TRUE,
+  digits = 3,
+  caption = "ANOVA table for the fixing nodule density by rhizobium abundance and nitrogen treatment, with the number of reads as a covariate.",
+  col.names = c("Sums-of-Squares", "df", "F", "P-value")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+
+
+\newpage
+### Effect Sizes
+
+```{r Partial Eta-Squared: Fixing Nodule Density by Rhizobia Abundance, include = FALSE}
+## Calculating partial eta-squared for each factor in the ANOVAs
+# Aboveground biomass by rhizobium abundance linear model
+fixing.nodule.density.by.rhizobium.LM.eta.squared <- eta_squared(
+  fixing.nodule.density.by.rhizobium.LM.ANOVA,
+  partial = TRUE
+)
+
+# Aboveground biomass by rhizobium relative abundance linear model
+fixing.nodule.density.by.rhizobium.RA.LM.eta.squared <- eta_squared(
+  fixing.nodule.density.by.rhizobium.RA.LM.ANOVA,
+  partial = TRUE
+)
+```
+
+\vspace{10pt}
+
+```{r Effect Size Table: Fixing Nodule Density by Rhizobia Abundance Model, echo = FALSE}
+kable(
+  fixing.nodule.density.by.rhizobium.LM.eta.squared,
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Table of effect sizes for the terms in the fixing nodule density by rhizobium abundance model.",
+  col.names = c("Term", "Partial eta-squared", "CI", "CI Low", "CI High")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{10pt}
+
+```{r Effect Size Table: Fixing Nodule Density by Rhizobia Relative Abundance Model, echo = FALSE}
+kable(
+  fixing.nodule.density.by.rhizobium.RA.LM.eta.squared,
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Table of effect sizes for the terms in the fixing nodule density by rhizobium relative abundance model.",
+  col.names = c("Term", "Partial eta-squared", "CI", "CI Low", "CI High")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+
+
+
+
+\newpage
+# Fitness by Microbiome Dissimilarity
+
+## Data Management
+
+```{r Data Management: Fitness by Microbiome Dissimilarity, echo = TRUE}
+## Set the soil abundance matrix
+soil.base.abundance.matrix <- abundances_matrix(
+  soil.tidyamplicon.base.microbiome.data,
+  value = abundance,
+  sample_name = sample,
+  taxon_name = taxon
+)
+
+## Set the sample IDs
+soil.abundance.matrix.sample.IDs <- rownames(soil.base.abundance.matrix) %>%
+  as_tibble()
+
+## Convert the abundance matrix to a tibble and add the sample IDs
+soil.abundance.matrix <- soil.base.abundance.matrix %>%
+  as_tibble() %>%
+	bind_cols(soil.abundance.matrix.sample.IDs) %>%
+  rename(Sequence_ID = value) %>%
+	drop_na()
+
+## Merge sample data with the abundance matrix
+soil.community.composition.data <- soil.sample.metadata %>%
+  rownames_to_column(var = "Sequence_ID") %>%
+  left_join(soil.abundance.matrix, by = "Sequence_ID") %>%
+  left_join(soil.sample.reads %>%select(Sequence_ID, Soil_Sample_Reads), by = "Sequence_ID") %>%
+	filter(Inoculant_Type == "Local" | Inoculant_Type == "Rural" | Inoculant_Type == "Urban") %>%
+	filter(Population != "P25")
+```
+
+
+
+\newpage
+### Calculate Fitness Responses (LA Indices)
+
+```{r Calculate Fitness Responses, echo = TRUE}
+## Aboveground biomass
+aboveground.biomass.LA.global.data <- aboveground.biomass.uncleaned.BLUPs %>%
+  select(Population, Microbiome_Global, Estimate) %>%
+  group_by(Population, Microbiome_Global) %>%
+  summarise(AG_Biomass = mean(Estimate), .groups = "keep") %>%
+  pivot_wider(names_from = Microbiome_Global, values_from = AG_Biomass) %>%
+  mutate(AG_Biomass_LA_Global = Local - Nonlocal_Global) %>%
+  ungroup() %>%
+	select(1, 4)
+
+## Belowground biomass
+belowground.biomass.LA.global.data <- belowground.biomass.uncleaned.BLUPs %>%
+  select(Population, Microbiome_Global, Estimate) %>%
+  group_by(Population, Microbiome_Global) %>%
+  summarise(BG_Biomass = mean(Estimate), .groups = "keep") %>%
+  pivot_wider(names_from = Microbiome_Global, values_from = BG_Biomass) %>%
+  mutate(BG_Biomass_LA_Global = Local - Nonlocal_Global) %>%
+  ungroup() %>%
+	select(1, 4)
+
+## Nodule density
+nodule.density.LA.global.data <- nodule.density.uncleaned.BLUPs %>%
+  select(Population, Microbiome_Global, Estimate) %>%
+  group_by(Population, Microbiome_Global) %>%
+  summarise(Nod_Density = mean(Estimate), .groups = "keep") %>%
+  pivot_wider(names_from = Microbiome_Global, values_from = Nod_Density) %>%
+  mutate(Nod_Density_LA_Global = Local - Nonlocal_Global) %>%
+  ungroup() %>%
+	select(1, 4)
+
+## Fixing nodule density
+fixing.nodule.density.LA.global.data <- fixing.nodule.density.uncleaned.BLUPs %>%
+  select(Population, Microbiome_Global, Estimate) %>%
+  group_by(Population, Microbiome_Global) %>%
+  summarise(Fix_Nod_Density = mean(Estimate), .groups = "keep") %>%
+  pivot_wider(names_from = Microbiome_Global, values_from = Fix_Nod_Density) %>%
+  mutate(Fix_Nod_Density_LA_Global = Local - Nonlocal_Global) %>%
+  ungroup() %>%
+	select(1, 4)
+
+## Combine into a single dataframe
+soil.fitness.variable.data <- aboveground.biomass.LA.global.data %>%
+	full_join(belowground.biomass.LA.global.data, by = "Population") %>%
+	full_join(nodule.density.LA.global.data, by = "Population") %>%
+	full_join(fixing.nodule.density.LA.global.data, by = "Population") %>%
+	filter(Population != "P25")
+```
+
+
+
+\newpage
+### Calculate Microbiome Dissimilarities
+
+```{r Subset Data for Analysis, echo = TRUE}
+## Set data for analyses
+# Local microbiome
+local.community.composition.data <- soil.community.composition.data %>%
+	filter(Inoculant_Type == "Local")
+# Nonlocal microbiome
+nonlocal.community.composition.data <- soil.community.composition.data %>%
+	filter(Inoculant_Type != "Local")
+```
+
+\vspace{10pt}
+
+```{r Set soil_microbiome_BC_dissimilarity_function, echo = TRUE}
+## Set the function
+soil_microbiome_BC_dissimilarity_function <- function(local_df, nonlocal_df) {
+	
+	## Set empty dataframe for results
+	soil.BC.dissimilarity.data <- data.frame("BC_Dissimilarity" = numeric(length = 29))
+	
+	## Set the nonlocal (rural, urban, or rural + urban) microbiome
+  nonlocal.microbiome <- nonlocal_df %>%
+   replace(is.na(.), 0) %>%
+   summarise(across(everything(), mean)) %>%
+   select(-c(Inoculant_Type:Population, Sequence_ID))
+  
+  # Remove any columns with 0
+  nonlocal.microbiome <- nonlocal.microbiome[, colSums(nonlocal.microbiome != 0) > 0]
+	
+  ## Set to X
+  for (x in 1:29) {
+  	
+    ## Set the local microbiome
+    local.microbiome <- local_df[x, 4:14301] %>%
+    	replace(is.na(.), 0)
+    # Remove any columns with 0
+    local.microbiome <- local.microbiome[, colSums(local.microbiome != 0) > 0]
+    
+    ## Combine local and nonlocal into single abundance matrix
+    community.matrix <- bind_rows(local.microbiome, nonlocal.microbiome) %>%
+    	replace(is.na(.), 0)
+
+    ## Calculate pairwise BC dissimilarity distance
+    local.vs.nonlocal.BC.distance <- vegdist(
+    	community.matrix,
+    	method = "bray"
+    )
+    
+    ## Export the pairwise BC distance
+    soil.BC.dissimilarity.data[x, ] <- local.vs.nonlocal.BC.distance
+  }
+	
+	## Set vector of pairwise BC distance
+	pairwise.BC.data <- as_tibble(soil.BC.dissimilarity.data)
+	
+}
+```
+
+\vspace{10pt}
+
+```{r Dissimilarity & Fitness Data Management, echo = TRUE}
+## Local vs nonlocal dissimilarity
+local.vs.nonlocal.dissimilarity <- soil_microbiome_BC_dissimilarity_function(
+  local_df = local.community.composition.data,
+  nonlocal_df = nonlocal.community.composition.data
+) %>%
+  mutate(Population = local.community.composition.data$Population) %>%
+  type_convert(col_types = c("nf"))
+
+## Combine fitness and dissimilarity data
+fitness.by.soil.dissimarility.data <- soil.fitness.variable.data %>%
+  full_join(local.vs.nonlocal.dissimilarity, by = "Population") %>%
+  left_join(soil.sample.reads, by = "Population") %>%
+  select(
+    Population, AG_Biomass_LA_Global:Fix_Nod_Density_LA_Global,
+    BC_Dissimilarity, Soil_Sample_Reads
+  )
+
+## Export data for figures
+write_rds(
+	fitness.by.soil.dissimarility.data,
+	file = "data/fitness_by_soil_dissimarility_data.rds"
+)
+```
+
+
+
+
+
+\newpage
+## Aboveground Biomass
+
+### Fit the Linear Model
+
+```{r Aboveground Biomass & Soil Microbiome Dissimilarity: Fit the Model, echo = TRUE}
+## Fit the aboveground biomass by microbiome dissimilarity model
+aboveground.biomass.by.BC.dissimilarity.LM <- lm(
+  AG_Biomass_LA_Global ~ BC_Dissimilarity + Soil_Sample_Reads,
+  data = fitness.by.soil.dissimarility.data
+)
+```
+
+
+
+### Check Model Assumptions
+
+```{r performance Diagnostics: Aboveground Biomass & Soil Microbiome Dissimilarity Model, echo = TRUE, eval = FALSE}
+## Visual assessment of model diagnostics
+check_model(aboveground.biomass.by.BC.dissimilarity.LM)
+# Visual check = assumptions met
+
+## Check normality of predictors (Shapiro-Wilk test)
+check_normality(aboveground.biomass.by.BC.dissimilarity.LM)
+# Non-normality of residuals detected (P < 0.001)
+
+## Check for non-constant variance of residuals (i.e., heteroscedasticity)
+check_heteroscedasticity(aboveground.biomass.by.BC.dissimilarity.LM)
+# Good
+
+## Check for outliers
+check_outliers(aboveground.biomass.by.BC.dissimilarity.LM)
+# No outliers detected
+```
+
+
+
+\newpage
+### Model Summary
+
+```{r ANOVA Table: Aboveground Biomass by Soil Microbiome Dissimilarity, echo = FALSE}
+kable(
+  tidy(summary(aboveground.biomass.by.BC.dissimilarity.LM)),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Summary of the aboveground biomass local adaptation global index by microbiome dissimilarity, with the number of reads as a covariate.",
+  col.names = c("Term", "Estimate", "SE", "t", "P-value")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{10pt}
+
+### Effect Sizes
+
+```{r Effect Size Table: Aboveground Biomass by Soil Microbiome Dissimilarity Model, echo = FALSE}
+kable(
+  effectsize(aboveground.biomass.by.BC.dissimilarity.LM),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Table of effect sizes for the terms in the aboveground biomass local adaptation global index by microbiome dissimilarity model. Adjusted R-squared < 0.001",
+  col.names = c("Term", "Standardize Slope", "CI", "CI Low", "CI High")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+
+
+
+
+\newpage
+## Belowground Biomass
+
+### Fit the Linear Model
+
+```{r Belowground Biomass & Soil Microbiome Dissimilarity: Fit the Model, echo = TRUE}
+## Fit the belowground biomass by microbiome dissimilarity model
+belowground.biomass.by.BC.dissimilarity.LM <- lm(
+  BG_Biomass_LA_Global ~ BC_Dissimilarity + Soil_Sample_Reads,
+  data = fitness.by.soil.dissimarility.data
+)
+```
+
+
+
+### Check Model Assumptions
+
+```{r performance Diagnostics: Belowground Biomass & Soil Microbiome Dissimilarity Model, echo = TRUE, eval = FALSE}
+## Visual assessment of model diagnostics
+check_model(belowground.biomass.by.BC.dissimilarity.LM)
+# Visual check = assumptions met
+
+## Check normality of predictors (Shapiro-Wilk test)
+check_normality(belowground.biomass.by.BC.dissimilarity.LM)
+# Good
+
+## Check for non-constant variance of residuals (i.e., heteroscedasticity)
+check_heteroscedasticity(belowground.biomass.by.BC.dissimilarity.LM)
+# Good
+
+## Check for outliers
+check_outliers(belowground.biomass.by.BC.dissimilarity.LM)
+# No outliers detected
+```
+
+
+
+\newpage
+### Model Summary
+
+```{r ANOVA Table: Belowground Biomass by Soil Microbiome Dissimilarity, echo = FALSE}
+kable(
+  tidy(summary(belowground.biomass.by.BC.dissimilarity.LM)),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Summary of the belowground biomass local adaptation global index by microbiome dissimilarity, with the number of reads as a covariate.",
+  col.names = c("Term", "Estimate", "SE", "t", "P-value")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{10pt}
+
+### Effect Sizes
+
+```{r Effect Size Table: Belowground Biomass by Soil Microbiome Dissimilarity Model, echo = FALSE}
+kable(
+  effectsize(belowground.biomass.by.BC.dissimilarity.LM),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Table of effect sizes for the terms in the belowground biomass local adaptation global index by microbiome dissimilarity model. Adjusted R-squared < 0.001",
+  col.names = c("Term", "Standardize Slope", "CI", "CI Low", "CI High")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+
+
+
+
+\newpage
+## Nodule Density
+
+### Fit the Linear Model
+
+```{r Nodule Density & Soil Microbiome Dissimilarity: Fit the Model, echo = TRUE}
+## Fit the nodule density by microbiome dissimilarity model
+nodule.density.by.BC.dissimilarity.LM <- lm(
+  Nod_Density_LA_Global ~ BC_Dissimilarity + Soil_Sample_Reads,
+  data = fitness.by.soil.dissimarility.data
+)
+```
+
+
+
+### Check Model Assumptions
+
+```{r performance Diagnostics: Nodule Density & Soil Microbiome Dissimilarity Model, echo = TRUE, eval = FALSE}
+## Visual assessment of model diagnostics
+check_model(nodule.density.by.BC.dissimilarity.LM)
+# Visual check = assumptions met
+
+## Check normality of predictors (Shapiro-Wilk test)
+check_normality(nodule.density.by.BC.dissimilarity.LM)
+# Good
+
+## Check for non-constant variance of residuals (i.e., heteroscedasticity)
+check_heteroscedasticity(nodule.density.by.BC.dissimilarity.LM)
+# Good
+
+## Check for outliers
+check_outliers(nodule.density.by.BC.dissimilarity.LM)
+# No outliers detected
+```
+
+
+
+\newpage
+### Model Summary
+
+```{r ANOVA Table: Nodule Density by Soil Microbiome Dissimilarity, echo = FALSE}
+kable(
+  tidy(summary(nodule.density.by.BC.dissimilarity.LM)),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Summary of the nodule density local adaptation global index by microbiome dissimilarity, with the number of reads as a covariate.",
+  col.names = c("Term", "Estimate", "SE", "t", "P-value")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{10pt}
+
+### Effect Sizes
+
+```{r Effect Size Table: Nodule Density by Soil Microbiome Dissimilarity Model, echo = FALSE}
+kable(
+  effectsize(nodule.density.by.BC.dissimilarity.LM),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Table of effect sizes for the terms in the nodule density local adaptation global index by microbiome dissimilarity model. Adjusted R-squared < 0.001",
+  col.names = c("Term", "Standardize Slope", "CI", "CI Low", "CI High")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+
+
+
+
+\newpage
+## Fixing Nodule Density
+
+### Fit the Linear Models
+
+```{r Fixing Nodule Density & Soil Microbiome Dissimilarity: Fit the Model, echo = TRUE}
+## Fit the fixing Nodule Density by microbiome dissimilarity model
+fixing.nodule.density.by.BC.dissimilarity.LM <- lm(
+  Fix_Nod_Density_LA_Global ~ BC_Dissimilarity + Soil_Sample_Reads,
+  data = fitness.by.soil.dissimarility.data
+)
+```
+
+
+
+### Check Model Assumptions
+
+```{r performance Diagnostics: Fixing Nodule Density & Soil Microbiome Dissimilarity Model, echo = TRUE, eval = FALSE}
+## Visual assessment of model diagnostics
+check_model(fixing.nodule.density.by.BC.dissimilarity.LM)
+# Visual check = assumptions met
+
+## Check normality of predictors (Shapiro-Wilk test)
+check_normality(fixing.nodule.density.by.BC.dissimilarity.LM)
+# Good
+
+## Check for non-constant variance of residuals (i.e., heteroscedasticity)
+check_heteroscedasticity(fixing.nodule.density.by.BC.dissimilarity.LM)
+# Good
+
+## Check for outliers
+check_outliers(fixing.nodule.density.by.BC.dissimilarity.LM)
+# No outliers detected
+```
+
+
+
+\newpage
+### Model Summary
+
+```{r ANOVA Table: Fixing Nodule Density by Soil Microbiome Dissimilarity, echo = FALSE}
+kable(
+  tidy(summary(fixing.nodule.density.by.BC.dissimilarity.LM)),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Summary of the fixing nodule density local adaptation global index by microbiome dissimilarity, with the number of reads as a covariate.",
+  col.names = c("Term", "Estimate", "SE", "t", "P-value")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{10pt}
+
+### Effect Sizes
+
+```{r Effect Size Table: Fixing Nodule Density by Soil Microbiome Dissimilarity Model, echo = FALSE}
+kable(
+  effectsize(fixing.nodule.density.by.BC.dissimilarity.LM),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Table of effect sizes for the terms in the fixing nodule density local adaptation global index by microbiome dissimilarity model. Adjusted R-squared < 0.001",
+  col.names = c("Term", "Standardize Slope", "CI", "CI Low", "CI High")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+
+
+
+
+
+\newpage
+# Rhizobium Abundance by Microbiome & Nitrogen
+
+## Fit the (Generalized) Linear Models
+
+```{r Rhizobium Abundances: (Generalized) Linear Model Fitting, echo = TRUE}
+## Fit the rhizobium abundance by microbiome and nitrogen model
+rhizobium.abundance.GLM <- glm(
+  Summed_Abundance ~ Microbiome_Global * Nitrogen,
+  data = root.fitness.by.rhizobium.data,
+  family = poisson(link = "log")
+)
+
+## Fit the rhizobium relative abundance by microbiome and nitrogen model
+rhizobium.relative.abundance.LM <- lm(
+  Summed_Relative_Abundance ~ Microbiome_Global * Nitrogen,
+  data = root.fitness.by.rhizobium.data
+)
+```
+
+
+
+## Check Model Assumptions
+
+```{r performance Diagnostics: Rhizobium Abundance Model, echo = TRUE, eval = FALSE}
+## Visual assessment of model diagnostics
+check_model(rhizobium.abundance.GLM)
+# Overdispersion
+# Residuals could be improved
+
+## Check for overdispersion
+check_overdispersion(rhizobium.abundance.GLM)
+# Overdispersion detected
+```
+
+\vspace{10pt}
+
+```{r performance Diagnostics: Rhizobium Relative Abundance Model, echo = TRUE, eval = FALSE}
+## Visual assessment of model diagnostics
+check_model(rhizobium.relative.abundance.LM)
+# Visual check = assumptions met
+
+## Check normality of predictors (Shapiro-Wilk test)
+check_normality(rhizobium.relative.abundance.LM)
+# Non-normality of residuals detected (P < 0.001)
+
+## Check for non-constant variance of residuals (i.e., heteroscedasticity)
+check_heteroscedasticity(rhizobium.relative.abundance.LM)
+# Statistical evidence for heteroscedasticity (P < 0.001)
+
+## Check for outliers
+check_outliers(rhizobium.relative.abundance.LM)
+# 1 outlier detected
+```
+
+
+
+\newpage
+## ANOVAs
+
+```{r ANOVAs: Rhizobium Abundances, echo = TRUE}
+## Fit ANOVAs with Type III sums-of-squares
+# Rhizobium abundance by microbiome and nitrogen model
+rhizobium.abundance.GLM.ANOVA <- Anova(
+  mod = rhizobium.abundance.GLM,
+  type = "III",
+  test.statistic = "Wald",
+  contrasts = list(topic = contr.sum, sys = contr.sum)
+)
+
+# Rhizobium relative abundance by microbiome and nitrogen model
+rhizobium.relative.abundance.LM.ANOVA <- Anova(
+  mod = rhizobium.relative.abundance.LM,
+  type = "III",
+  test.statistic = "F",
+  contrasts = list(topic = contr.sum, sys = contr.sum)
+)
+```
+
+\vspace{10pt}
+
+```{r ANOVA Table: Rhizobium Abundance, echo = FALSE}
+kable(
+  rhizobium.abundance.GLM.ANOVA,
+  booktabs = TRUE,
+  digits = 3,
+  caption = "ANOVA table for rhizobium abundance by microbiome, nitrogen, and the interaction.",
+  col.names = c("df", "chi-squared", "P-value")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{10pt}
+
+```{r ANOVA Table: Rhizobium Relative Abundance, echo = FALSE}
+kable(
+  rhizobium.relative.abundance.LM.ANOVA,
+  booktabs = TRUE,
+  digits = 3,
+  caption = "ANOVA table for rhizobium relative abundance by microbiome, nitrogen, and the interaction.",
+  col.names = c("Sums-of-Squares", "df", "F", "P-value")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+
+
+\newpage
+## Effect Sizes
+
+```{r Effect Sizes: Rhizobium Abundances, include = FALSE}
+## Calculating effect sizes for each factor in the ANOVAs
+# Rhizobium abundance by microbiome and nitrogen model
+rhizobium.abundance.GLM.cohens_w <- chisq_to_cohens_w(
+  rhizobium.abundance.GLM.ANOVA$Chisq,
+  n = 60,
+  nrow = 4,
+  ncol = 1
+) %>%
+  add_column(Term = c("Intercept", "Microbiome", "Nitrogen", "Microbiome x Nitrogen")) %>%
+  select(Term, Cohens_w)
+
+# Rhizobium relative abundance by microbiome and nitrogen model
+rhizobium.relative.abundance.LM.eta.squared <- eta_squared(
+  rhizobium.relative.abundance.LM.ANOVA,
+  partial = TRUE
+)
+```
+
+\vspace{10pt}
+
+```{r Effect Size Table: Rhizobium Abundance Model, echo = FALSE}
+kable(
+  rhizobium.abundance.GLM.cohens_w,
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Table of effect sizes (Cohen's w) for the terms in the rhizobium abundance by microbiome and nitrogen model."
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{10pt}
+
+```{r Effect Size Table: Rhizobium Relative Abundance Model, echo = FALSE}
+kable(
+  rhizobium.relative.abundance.LM.eta.squared,
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Table of effect sizes (partial eta-squared) for the terms in the rhizobium relative abundance by microbiome and nitrogen model.",
+  col.names = c("Term", "Partial eta-squared", "CI", "CI Low", "CI High")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+
+
+
+
+\newpage
+# Community Composition by Microbiome & Nitrogen
+
+## Data Management
+
+Note: summed abundances and relative abundances across all ASVs identified to Rhizobium in the sample
+
+```{r Root Microbiomes: Data Management, echo = TRUE}
+## Convert abundance to relative abundance
+root.phyloseq.reference.relativized <- transform_sample_counts(
+  root.phyloseq.reference,
+  relative_abundance
+)
+```
+
+
+
+\newpage
+## NMDS Ordination
+
+```{r Root Microbiomes: Calculate Bray-Curtis Distance, echo = TRUE}
+## Calculate Bray-Curtis Distance
+root.BC.distance.matrix <- distance(
+  root.phyloseq.reference.relativized,
+  method = "bray"
+)
+
+## Set tibble with scores and predictor variables
+root.BC.distance.data <- scores(root.BC.distance.matrix) %>%
+  as.data.frame() %>%
+  rownames_as_column(var = "Sequence_ID") %>%
+  full_join(root.microbiome.sample.data, by = "Sequence_ID") %>%
+  select(Sequence_ID, Population:Microbiome_Global, LA1:LA9)
+
+## Export NMDS data for figures
+write_rds(
+  root.BC.distance.data,
+  file = "data/root_BC_distance_data.rds"
+)
+```
+
+\vspace{10pt}
+
+```{r Root Microbiomes: NMDS Ordination, echo = TRUE, results = "hide"}
+## NMDS Ordination
+root.BC.NMDS <- ordinate(
+  root.phyloseq.reference.relativized,
+  method = "NMDS",
+  distance = "bray",
+  k = 3
+)
+
+## Export NMDS data for figures
+write_rds(
+  root.BC.NMDS,
+  file = "data/root_BC_NMDS.rds"
+)
+```
+
+\vspace{10pt}
+
+## PERMANOVAs
+
+```{r Root Microbiomes: PERMANOVAs, echo = TRUE}
+## PERMANOVA by microbiome, nitrogen, and the interaction
+root.community.composition.PERMANOVA <- adonis2(
+  root.BC.distance.matrix ~ Microbiome * Nitrogen,
+  data = root.BC.distance.data,
+  permutations = 10000
+)
+
+## PERMANOVA by microbiome (global), nitrogen, and the interaction
+root.community.composition.global.PERMANOVA <- adonis2(
+  root.BC.distance.matrix ~ Microbiome_Global * Nitrogen,
+  data = root.BC.distance.data,
+  permutations = 10000
+)
+```
+
+\vspace{10pt}
+
+```{r Root Microbiomes: PERMANOVA Summary Table: Microbiome (Local, Rural, Urban), echo = FALSE}
+kable(
+  tidy(root.community.composition.PERMANOVA),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Summary of the PERMANOVA comparing root composition by microbiome, nitrogen, and the two-way interaction.",
+  col.names = c("Term", "df", "Sums-of-Squares", "R2", "F", "P-value")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{10pt}
+
+```{r Root Microbiomes: PERMANOVA Summary Table: Microbiome (Local vs Nonlocal_Global), echo = FALSE}
+kable(
+  tidy(root.community.composition.global.PERMANOVA),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Summary of the PERMANOVA comparing root composition by microbiome (local vs. nonlocal~global~), nitrogen, and the two-way interaction.",
+  col.names = c("Term", "df", "Sums-of-Squares", "R2", "F", "P-value")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+
+
+
+
+\newpage
+# Inoculant Community Composition
+
+```{r Inoculant Community Composition: Data Management, echo = TRUE}
+## Set the base abundance matrix for the inoculant communities
+inoculant.base.abundance.matrix <- abundances_matrix(
+  soil.tidyamplicon.base.microbiome.data,
+  value = abundance,
+  sample_name = sample,
+  taxon_name = taxon
+)
+
+## Set the sample IDs
+inoculant.abundance.matrix.sample.IDs <- rownames(inoculant.base.abundance.matrix) %>%
+  as_tibble()
+
+## Convert the abundance matrix to a tibble and add the sample IDs
+inoculant.abundance.matrix <- inoculant.base.abundance.matrix %>%
+  as_tibble() %>%
+  bind_cols(inoculant.abundance.matrix.sample.IDs) %>%
+  rename(Sequence_ID = value)
+
+## Inoculant and control data (N Addition and Ambient N)
+inoculant.community.composition.data <- soil.sample.metadata %>%
+  rownames_to_column(var = "Sequence_ID") %>%
+  left_join(inoculant.abundance.matrix, by = "Sequence_ID") %>%
+  full_join(soil.sample.reads %>% select(Sequence_ID, Soil_Sample_Reads), by = "Sequence_ID") %>%
+  slice(-20) # Remove P25 (missing data)
+
+## Export data for figures
+write_rds(
+  inoculant.community.composition.data,
+  file = "data/inoculant_community_composition_data.rds"
+)
+```
+
+\vspace{10pt}
+
+```{r Inoculant Community Composition: PCoA, echo = TRUE, results = "hide"}
+## Conduct a Principal Coordinates Analysis (PCoA)
+inoculant.PCoA <- capscale(
+  inoculant.abundance.matrix %>% select(-Sequence_ID) ~ 1,
+  data = inoculant.abundance.matrix
+)
+
+## Check the screeplot
+screeplot(inoculant.PCoA)
+# Sharp reduction and plateau in inertia after MDS3
+
+## Get eigenvalue summary
+inoculant.PCoA.eigen.values <- eigenvals(inoculant.PCoA) %>%
+  summary()
+# MDS1-MDS2 explain ~18.9% of the variation in the data
+# MDS1 = 10.5%
+# MDS2 = 8.4%
+# Poor ordination, but caveated with drastic differences in group representation
+
+## Export PCoA for figures
+write_rds(
+  inoculant.PCoA,
+  file = "data/inoculant_PCoA.rds"
+)
+```
+
+
+
+
+
+\newpage
+# Inoculant Rhizobium Abundances
+
+## Data Management
+
+```{r Data Management: Inoculant  Rhizobium Abundances, echo = TRUE}
+## Root abundances
+inoculant.abundances <- abundances(soil.tidyamplicon.base.microbiome.data)
+
+## Root taxa
+inoculant.taxa <- taxa(soil.tidyamplicon.base.microbiome.data)
+
+## Set tibble of abundances of only Rhizobium
+inoculant.rhizobium.abundance.data <- inoculant.abundances %>%
+  full_join(inoculant.taxa, by = "taxon_id") %>%
+  full_join(soil.tidyamplicon.base.microbiome.data$samples, by = "sample_id") %>%
+  filter(genus == "Rhizobium") %>%
+  select(Population, Inoculant_Type, abundance) %>%
+  rename(Rhizobium_Abundance = abundance) %>%
+  group_by(Population, Inoculant_Type) %>%
+  summarise(
+    Summed_Rhizobium_Abundance = sum(Rhizobium_Abundance),
+    .groups = "keep"
+  )
+
+## Set tibble of samples with no rhizobia
+inoculant.rhizobium.abundance.supplement.data <- tibble(
+  Population = c(
+    "Ambient_N-1", "N_Addition-1", "N_Addition-2", "N_Addition-3",
+    "P1", "P4", "P6", "P8", "P12", "P14", "P16", "P18", "P23", "P30",
+    "P34", "P43", "P45", "P48"
+  ),
+  Inoculant_Type = c("Ambient_N", rep("N_Addition", 3), rep("Local", 14)),
+  Summed_Rhizobium_Abundance = c(rep(0, 18))
+)
+
+## Bind all inoculant vs. control data into a single tibble
+inoculant.rhizobium.abundance.full.data <- bind_rows(
+  inoculant.rhizobium.abundance.data,
+  inoculant.rhizobium.abundance.supplement.data
+)
+
+## Export data for figures
+write_rds(
+  inoculant.rhizobium.abundance.data,
+  file = "data/inoculant_rhizobium_abundance_data.rds"
+)
+```
+
+
+\newpage
+## Fit the Generalized Linear Model
+
+```{r Fit the Model: Inoculant  Rhizobium Abundances, echo = TRUE}
+## Fit the rhizobium abundance by inoculant and control
+inoculant.rhizobium.abundance.GLM <- glm(
+  Summed_Rhizobium_Abundance ~ Inoculant_Type,
+  data = inoculant.rhizobium.abundance.full.data,
+  family = poisson(link = "log")
+)
+```
+
+
+## Check Model Assumptions
+
+```{r performance Diagnostics: Inoculant  Rhizobium Abundances, echo = TRUE, eval = FALSE}
+## Visual assessment of model diagnostics
+check_model(inoculant.rhizobium.abundance.GLM)
+# Residuals could be improved but are tolerable
+
+## Check for overdispersion
+check_overdispersion(inoculant.rhizobium.abundance.GLM)
+# Overdispersion detected
+```
+
+
+## ANOVA
+
+```{r ANOVAs: Inoculant  Rhizobium Abundances, echo = TRUE}
+## Fit ANOVA with Type III sums-of-squares
+inoculant.rhizobium.abundance.GLM.ANOVA <- Anova(
+  mod = inoculant.rhizobium.abundance.GLM,
+  type = "III",
+  test.statistic = "Wald",
+  contrasts = list(topic = contr.sum, sys = contr.sum)
+)
+```
+
+\vspace{10pt}
+
+```{r ANOVA Table: Inoculant  Rhizobium Abundances, echo = FALSE}
+kable(
+  inoculant.rhizobium.abundance.GLM.ANOVA,
+  booktabs = TRUE,
+  digits = 3,
+  caption = "ANOVA table for rhizobium abundance by inoculant and control communities.",
+  col.names = c("df", "chi-squared", "P-value")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+
+## Effect Sizes
+
+```{r Effect Sizes: Inoculant  Rhizobium Abundances, include = FALSE}
+## Calculating effect sizes for each factor in the ANOVA
+inoculant.rhizobium.abundance.GLM.cohens_w <- chisq_to_cohens_w(
+  inoculant.rhizobium.abundance.GLM.ANOVA$Chisq,
+  n = 45,
+  nrow = 2,
+  ncol = 1
+) %>%
+  add_column(Term = c("Intercept", "Inoculant Type")) %>%
+  select(Term, Cohens_w)
+```
+
+\vspace{10pt}
+
+```{r Effect Size Table: Inoculant  Rhizobium Abundance Model, echo = FALSE}
+kable(
+  inoculant.rhizobium.abundance.GLM.cohens_w,
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Table of effect sizes (Cohen's w) for the terms in the rhizobium abundance by inoculant communities."
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+
+
+
+
+\newpage
+# Supplementary: Fitness by Rhizobium Estimated Marginal Means
+
+## Aboveground Biomass
+
+```{r Estimated Marginal Means: Aboveground Biomass by Rhizobia Abundance, echo = TRUE}
+## Set the estimated marginal means
+# Nitrogen
+aboveground.biomass.by.rhizobium.N.emmeans <- emmeans(
+  aboveground.biomass.by.rhizobium.LM,
+  specs = pairwise ~ Nitrogen,
+  weights = "cells",
+  adjust = "none"
+)
+
+# Nitrogen x Rhizobium
+aboveground.biomass.by.rhizobium.NR.emmeans <- emtrends(
+  aboveground.biomass.by.rhizobium.LM,
+  specs = pairwise ~ Nitrogen,
+  var = "Summed_Abundance",
+  weights = "cells",
+  adjust = "none"
+)
+```
+
+
+
+\newpage
+### Estimated Marginal Means & Trends
+
+```{r emmeans: Aboveground Biomass by Nitrogen, echo = FALSE}
+kable(
+  tidy(aboveground.biomass.by.rhizobium.N.emmeans$emmeans),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Estimated marginal means of the main effect of nitrogen in the aboveground biomass by rhizobium model.",
+  col.names = c("Nitrogen", "Estimate", "SE", "df", "t", "P")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{10pt}
+
+```{r emmeans: Aboveground Biomass by Nitrogen and Rhizobia, echo = FALSE}
+kable(
+  tidy(aboveground.biomass.by.rhizobium.NR.emmeans$emtrends),
+  booktabs = TRUE,
+  digits = 6,
+  caption = "Estimated marginal trends of the interaction between nitrogen and rhizobium abundance in the aboveground biomass by rhizobium model.",
+  col.names = c("Nitrogen", "Rhizobia Trend", "SE", "df", "t", "P")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+
+
+\newpage
+### Contrasts
+
+```{r Post Hoc Comparisons: Aboveground Biomass by Nitrogen, echo = FALSE}
+kable(
+  tidy(aboveground.biomass.by.rhizobium.N.emmeans$contrasts),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Post-hoc comparisons of the main effect of nitrogen in the aboveground biomass by rhizobium model.",
+  col.names = c("Term", "Contrast", "Null Value", "Estimate", "SE", "df", "t", "P")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{10pt}
+
+```{r Post Hoc Comparisons: Aboveground Biomass by Nitrogen and Rhizobia, echo = FALSE}
+kable(
+  tidy(aboveground.biomass.by.rhizobium.NR.emmeans$contrasts),
+  booktabs = TRUE,
+  digits = 6,
+  caption = "Post-hoc comparisons of the interaction between nitrogen and rhizobium abundance in the aboveground biomass by rhizobium model.",
+  col.names = c("Term", "Contrast", "Null Value", "Estimate", "SE", "df", "t", "P")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+
+
+\newpage
+### Contrast Effect Sizes
+
+```{r Contrast Effect Sizes: Aboveground Biomass by Nitrogen, echo = FALSE}
+kable(
+  eff_size(aboveground.biomass.by.rhizobium.N.emmeans,
+    sigma = sigma(aboveground.biomass.by.rhizobium.LM),
+    edf = df.residual(aboveground.biomass.by.rhizobium.LM)
+  ),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Effect sizes for the constrasts by nitrogen in the aboveground biomass by rhizobium model.",
+  col.names = c("Contrast", "Cohen's d", "SE", "df", "CI Lower", "CI Upper")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped", "scale_down"))
+```
+
+\vspace{10pt}
+
+```{r Contrast Effect Sizes: Aboveground Biomass by Nitrogen and Rhizobia, echo = FALSE}
+kable(
+  eff_size(aboveground.biomass.by.rhizobium.NR.emmeans,
+    sigma = sigma(aboveground.biomass.by.rhizobium.LM),
+    edf = df.residual(aboveground.biomass.by.rhizobium.LM)
+  ),
+  booktabs = TRUE,
+  digits = 6,
+  caption = "Effect sizes for the constrasts by nitrogen and rhizobia in the aboveground biomass by rhizobium model.",
+  col.names = c("Contrast", "Cohen's d", "SE", "df", "CI Lower", "CI Upper")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped", "scale_down"))
+```
+
+
+
+
+
+\newpage
+## Belowground Biomass
+
+```{r Estimated Marginal Means: Belowground Biomass by Rhizobia Abundance, echo = TRUE}
+## Set the estimated marginal means
+# Nitrogen
+belowground.biomass.by.rhizobium.N.emmeans <- emmeans(
+  belowground.biomass.by.rhizobium.LM,
+  specs = pairwise ~ Nitrogen,
+  weights = "cells",
+  adjust = "none"
+)
+
+# Nitrogen x Rhizobium
+belowground.biomass.by.rhizobium.NR.emmeans <- emtrends(
+  belowground.biomass.by.rhizobium.LM,
+  specs = pairwise ~ Nitrogen,
+  var = "Summed_Abundance",
+  weights = "cells",
+  adjust = "none"
+)
+```
+
+
+
+\newpage
+### Estimated Marginal Means & Trends
+
+```{r emmeans: Belowground Biomass by Nitrogen, echo = FALSE}
+kable(
+  tidy(belowground.biomass.by.rhizobium.N.emmeans$emmeans),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Estimated marginal means of the main effect of nitrogen in the belowground biomass by rhizobium model.",
+  col.names = c("Nitrogen", "Estimate", "SE", "df", "t", "P")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{10pt}
+
+```{r emmeans: Belowground Biomass by Nitrogen and Rhizobia, echo = FALSE}
+kable(
+  tidy(belowground.biomass.by.rhizobium.NR.emmeans$emtrends),
+  booktabs = TRUE,
+  digits = 6,
+  caption = "Estimated marginal trends of the interaction between nitrogen and rhizobium abundance in the belowground biomass by rhizobium model.",
+  col.names = c("Nitrogen", "Rhizobia Trend", "SE", "df", "t", "P")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+
+
+\newpage
+### Contrasts
+
+```{r Post Hoc Comparisons: Belowground Biomass by Nitrogen, echo = FALSE}
+kable(
+  tidy(belowground.biomass.by.rhizobium.N.emmeans$contrasts),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Post-hoc comparisons of the main effect of nitrogen in the belowground biomass by rhizobium model.",
+  col.names = c("Term", "Contrast", "Null Value", "Estimate", "SE", "df", "t", "P")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{10pt}
+
+```{r Post Hoc Comparisons: Belowground Biomass by Nitrogen and Rhizobia, echo = FALSE}
+kable(
+  tidy(belowground.biomass.by.rhizobium.NR.emmeans$contrasts),
+  booktabs = TRUE,
+  digits = 6,
+  caption = "Post-hoc comparisons of the interaction between nitrogen and rhizobium abundance in the belowground biomass by rhizobium model.",
+  col.names = c("Term", "Contrast", "Null Value", "Estimate", "SE", "df", "t", "P")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+
+
+\newpage
+### Contrast Effect Sizes
+
+```{r Contrast Effect Sizes: Belowground Biomass by Nitrogen, echo = FALSE}
+kable(
+  eff_size(belowground.biomass.by.rhizobium.N.emmeans,
+    sigma = sigma(belowground.biomass.by.rhizobium.LM),
+    edf = df.residual(belowground.biomass.by.rhizobium.LM)
+  ),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Effect sizes for the constrasts by nitrogen in the belowground biomass by rhizobium model.",
+  col.names = c("Contrast", "Cohen's d", "SE", "df", "CI Lower", "CI Upper")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped", "scale_down"))
+```
+
+\vspace{10pt}
+
+```{r Contrast Effect Sizes: Belowground Biomass by Nitrogen and Rhizobia, echo = FALSE}
+kable(
+  eff_size(belowground.biomass.by.rhizobium.NR.emmeans,
+    sigma = sigma(belowground.biomass.by.rhizobium.LM),
+    edf = df.residual(belowground.biomass.by.rhizobium.LM)
+  ),
+  booktabs = TRUE,
+  digits = 6,
+  caption = "Effect sizes for the constrasts by nitrogen and rhizobia in the belowground biomass by rhizobium model.",
+  col.names = c("Contrast", "Cohen's d", "SE", "df", "CI Lower", "CI Upper")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped", "scale_down"))
+```
+
+
+
+
+
+\newpage
+## Nodule Density
+
+```{r Estimated Marginal Means: Nodule Density by Rhizobia Abundance, echo = TRUE}
+## Set the estimated marginal means
+# Nitrogen
+nodule.density.by.rhizobium.N.emmeans <- emmeans(
+  nodule.density.by.rhizobium.LM,
+  specs = pairwise ~ Nitrogen,
+  weights = "cells",
+  adjust = "none"
+)
+
+# Nitrogen x Rhizobium
+nodule.density.by.rhizobium.NR.emmeans <- emtrends(
+  nodule.density.by.rhizobium.LM,
+  specs = pairwise ~ Nitrogen,
+  var = "Summed_Abundance",
+  weights = "cells",
+  adjust = "none"
+)
+```
+
+
+
+\newpage
+### Estimated Marginal Means & Trends
+
+```{r emmeans: Nodule Density by Nitrogen, echo = FALSE}
+kable(
+  tidy(nodule.density.by.rhizobium.N.emmeans$emmeans),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Estimated marginal means of the main effect of nitrogen in the nodule density by rhizobium model.",
+  col.names = c("Nitrogen", "Estimate", "SE", "df", "t", "P")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{10pt}
+
+```{r emmeans: Nodule Density by Nitrogen and Rhizobia, echo = FALSE}
+kable(
+  tidy(nodule.density.by.rhizobium.NR.emmeans$emtrends),
+  booktabs = TRUE,
+  digits = 6,
+  caption = "Estimated marginal trends of the interaction between nitrogen and rhizobium abundance in the nodule density by rhizobium model.",
+  col.names = c("Nitrogen", "Rhizobia Trend", "SE", "df", "t", "P")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+
+
+\newpage
+### Contrasts
+
+```{r Post Hoc Comparisons: Nodule Density by Nitrogen, echo = FALSE}
+kable(
+  tidy(nodule.density.by.rhizobium.N.emmeans$contrasts),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Post-hoc comparisons of the main effect of nitrogen in the nodule density by rhizobium model.",
+  col.names = c("Term", "Contrast", "Null Value", "Estimate", "SE", "df", "t", "P")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{10pt}
+
+```{r Post Hoc Comparisons: Nodule Density by Nitrogen and Rhizobia, echo = FALSE}
+kable(
+  tidy(nodule.density.by.rhizobium.NR.emmeans$contrasts),
+  booktabs = TRUE,
+  digits = 6,
+  caption = "Post-hoc comparisons of the interaction between nitrogen and rhizobium abundance in the nodule density by rhizobium model.",
+  col.names = c("Term", "Contrast", "Null Value", "Estimate", "SE", "df", "t", "P")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+
+
+\newpage
+### Contrast Effect Sizes
+
+```{r Contrast Effect Sizes: Nodule Density by Nitrogen, echo = FALSE}
+kable(
+  eff_size(nodule.density.by.rhizobium.N.emmeans,
+    sigma = sigma(nodule.density.by.rhizobium.LM),
+    edf = df.residual(nodule.density.by.rhizobium.LM)
+  ),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Effect sizes for the constrasts by nitrogen in the nodule density by rhizobium model.",
+  col.names = c("Contrast", "Cohen's d", "SE", "df", "CI Lower", "CI Upper")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped", "scale_down"))
+```
+
+\vspace{10pt}
+
+```{r Contrast Effect Sizes: Nodule Density by Nitrogen and Rhizobia, echo = FALSE}
+kable(
+  eff_size(nodule.density.by.rhizobium.NR.emmeans,
+    sigma = sigma(nodule.density.by.rhizobium.LM),
+    edf = df.residual(nodule.density.by.rhizobium.LM)
+  ),
+  booktabs = TRUE,
+  digits = 6,
+  caption = "Effect sizes for the constrasts by nitrogen and rhizobia in the nodule density by rhizobium model.",
+  col.names = c("Contrast", "Cohen's d", "SE", "df", "CI Lower", "CI Upper")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped", "scale_down"))
+```
+
+
+
+
+
+\newpage
+## Fixing Nodule Density
+
+```{r Estimated Marginal Means: Fixing Nodule Density by Rhizobia Abundance, echo = TRUE}
+## Set the estimated marginal means
+# Nitrogen
+fixing.nodule.density.by.rhizobium.N.emmeans <- emmeans(
+  fixing.nodule.density.by.rhizobium.LM,
+  specs = pairwise ~ Nitrogen,
+  weights = "cells",
+  adjust = "none"
+)
+
+# Nitrogen x Rhizobium
+fixing.nodule.density.by.rhizobium.NR.emmeans <- emtrends(
+  fixing.nodule.density.by.rhizobium.LM,
+  specs = pairwise ~ Nitrogen,
+  var = "Summed_Abundance",
+  weights = "cells",
+  adjust = "none"
+)
+```
+
+
+
+\newpage
+### Estimated Marginal Means & Trends
+
+```{r emmeans: Fixing Nodule Density by Nitrogen, echo = FALSE}
+kable(
+  tidy(fixing.nodule.density.by.rhizobium.N.emmeans$emmeans),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Estimated marginal means of the main effect of nitrogen in the fixing nodule density by rhizobium model.",
+  col.names = c("Nitrogen", "Estimate", "SE", "df", "t", "P")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{10pt}
+
+```{r emmeans: Fixing Nodule Density by Nitrogen and Rhizobia, echo = FALSE}
+kable(
+  tidy(fixing.nodule.density.by.rhizobium.NR.emmeans$emtrends),
+  booktabs = TRUE,
+  digits = 6,
+  caption = "Estimated marginal trends of the interaction between nitrogen and rhizobium abundance in the fixing nodule density by rhizobium model.",
+  col.names = c("Nitrogen", "Rhizobia Trend", "SE", "df", "t", "P")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+
+
+\newpage
+### Contrasts
+
+```{r Post Hoc Comparisons: Fixing Nodule Density by Nitrogen, echo = FALSE}
+kable(
+  tidy(fixing.nodule.density.by.rhizobium.N.emmeans$contrasts),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Post-hoc comparisons of the main effect of nitrogen in the fixing nodule density by rhizobium model.",
+  col.names = c("Term", "Contrast", "Null Value", "Estimate", "SE", "df", "t", "P")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{10pt}
+
+```{r Post Hoc Comparisons: Fixing Nodule Density by Nitrogen and Rhizobia, echo = FALSE}
+kable(
+  tidy(fixing.nodule.density.by.rhizobium.NR.emmeans$contrasts),
+  booktabs = TRUE,
+  digits = 6,
+  caption = "Post-hoc comparisons of the interaction between nitrogen and rhizobium abundance in the fixing nodule density by rhizobium model.",
+  col.names = c("Term", "Contrast", "Null Value", "Estimate", "SE", "df", "t", "P")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+
+
+\newpage
+### Contrast Effect Sizes
+
+```{r Contrast Effect Sizes: Fixing Nodule Density by Nitrogen, echo = FALSE}
+kable(
+  eff_size(fixing.nodule.density.by.rhizobium.N.emmeans,
+    sigma = sigma(fixing.nodule.density.by.rhizobium.LM),
+    edf = df.residual(fixing.nodule.density.by.rhizobium.LM)
+  ),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Effect sizes for the constrasts by nitrogen in the fixing nodule density by rhizobium model.",
+  col.names = c("Contrast", "Cohen's d", "SE", "df", "CI Lower", "CI Upper")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped", "scale_down"))
+```
+
+\vspace{10pt}
+
+```{r Contrast Effect Sizes: Fixing Nodule Density by Nitrogen and Rhizobia, echo = FALSE}
+kable(
+  eff_size(fixing.nodule.density.by.rhizobium.NR.emmeans,
+    sigma = sigma(fixing.nodule.density.by.rhizobium.LM),
+    edf = df.residual(fixing.nodule.density.by.rhizobium.LM)
+  ),
+  booktabs = TRUE,
+  digits = 6,
+  caption = "Effect sizes for the constrasts by nitrogen and rhizobia in the fixing nodule density by rhizobium model.",
+  col.names = c("Contrast", "Cohen's d", "SE", "df", "CI Lower", "CI Upper")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped", "scale_down"))
+```
+
+
+
+
+
+\newpage
+# Supplementary: Rhizobium Abundance by Microbiome & Nitrogen Estimated Marginal Means
+
+
+## Rhizobium Abundance
+
+```{r Estimated Marginal Means: Rhizobium Abundance by Microbiome and Nitrogen, echo = TRUE}
+## Set the estimated marginal means
+# Microbiome
+rhizobium.abundance.M.emmeans <- emmeans(
+  rhizobium.abundance.GLM,
+  specs = pairwise ~ Microbiome_Global,
+  weights = "cells",
+  adjust = "none"
+)
+
+# Nitrogen
+rhizobium.abundance.N.emmeans <- emmeans(
+  rhizobium.abundance.GLM,
+  specs = pairwise ~ Nitrogen,
+  weights = "cells",
+  adjust = "none"
+)
+
+# Microbiome x Nitrogen
+rhizobium.abundance.MN.emmeans <- emmeans(
+  rhizobium.abundance.GLM,
+  specs = pairwise ~ Nitrogen | Microbiome_Global,
+  weights = "cells",
+  adjust = "none"
+)
+```
+
+
+
+\newpage
+### Estimated Marginal Means & Trends
+
+```{r emmeans: Rhizobium Abundance by Microbiome, echo = FALSE}
+kable(
+  tidy(rhizobium.abundance.M.emmeans$emmeans),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Estimated marginal means of the main effect of microbiome in the rhizobium abundance by microbiome and nitrogen model.",
+  col.names = c("Microbiome", "Estimate", "SE", "df", "t", "P")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{10pt}
+
+```{r emmeans: Rhizobium Abundance by Nitrogen, echo = FALSE}
+kable(
+  tidy(rhizobium.abundance.N.emmeans$emmeans),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Estimated marginal means of the main effect of nitrogen in the rhizobium abundance by microbiome and nitrogen model.",
+  col.names = c("Nitrogen", "Estimate", "SE", "df", "t", "P")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{10pt}
+
+```{r emmeans: Rhizobium Abundance by Nitrogen and Rhizobia, echo = FALSE}
+kable(
+  tidy(rhizobium.abundance.MN.emmeans$emmeans),
+  booktabs = TRUE,
+  digits = 6,
+  caption = "Estimated marginal means of the interaction between microbiome and rhizobium abundance in the rhizobium abundance by microbiome and nitrogen model.",
+  col.names = c("Nitrogen", "Microbiome", "Estimate", "SE", "df", "t", "P")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+
+
+\newpage
+### Contrasts
+
+```{r Post Hoc Comparisons: Rhizobium Abundances by Microbiome, echo = FALSE}
+kable(
+  tidy(rhizobium.abundance.M.emmeans$contrasts),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Post-hoc comparisons of the main effect of microbiome in the rhizobium abundance by microbiome and nitrogen model.",
+  col.names = c("Term", "Contrast", "Null Value", "Estimate", "SE", "df", "t", "P")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{10pt}
+
+```{r Post Hoc Comparisons: Rhizobium Abundances by Nitrogen, echo = FALSE}
+kable(
+  tidy(rhizobium.abundance.N.emmeans$contrasts),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Post-hoc comparisons of the main effect of nitrogen in the rhizobium abundance by microbiome and nitrogen model.",
+  col.names = c("Term", "Contrast", "Null Value", "Estimate", "SE", "df", "t", "P")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{10pt}
+
+```{r Post Hoc Comparisons: Rhizobium Abundances by Microbiome and Nitrogen, echo = FALSE}
+kable(
+  tidy(rhizobium.abundance.MN.emmeans$contrasts),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Post-hoc comparisons of the interaction between microbiome and nitrogen abundance in the rhizobium abundance by microbiome and nitrogen model.",
+  col.names = c("Microbiome", "Term", "Contrast", "Null Value", "Estimate", "SE", "df", "t", "P")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+
+
+\newpage
+### Contrast Effect Sizes
+
+```{r Contrast Effect Sizes: Rhizobium Abundances by Microbiome, echo = FALSE}
+kable(
+  eff_size(rhizobium.abundance.M.emmeans,
+    sigma = sigma(rhizobium.abundance.GLM),
+    edf = df.residual(rhizobium.abundance.GLM)
+  ),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Effect sizes for the constrasts by microbiome in the rhizobium abundance by microbiome and nitrogen model.",
+  col.names = c("Contrast", "Cohen's d", "SE", "df", "CI Lower", "CI Upper")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped", "scale_down"))
+```
+
+\vspace{10pt}
+
+```{r Contrast Effect Sizes: Rhizobium Abundances by Nitrogen, echo = FALSE}
+kable(
+  eff_size(rhizobium.abundance.N.emmeans,
+    sigma = sigma(rhizobium.abundance.GLM),
+    edf = df.residual(rhizobium.abundance.GLM)
+  ),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Effect sizes for the constrasts by nitrogen in the rhizobium abundance by microbiome and nitrogen model.",
+  col.names = c("Contrast", "Cohen's d", "SE", "df", "CI Lower", "CI Upper")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped", "scale_down"))
+```
+
+\vspace{10pt}
+
+```{r Contrast Effect Sizes: Rhizobium Abundances by Microbiome and Nitrogen, echo = FALSE}
+kable(
+  eff_size(rhizobium.abundance.MN.emmeans,
+    sigma = sigma(rhizobium.abundance.GLM),
+    edf = df.residual(rhizobium.abundance.GLM)
+  ),
+  booktabs = TRUE,
+  digits = 6,
+  caption = "Effect sizes for the constrasts by microbiome and nitrogen and rhizobia in the rhizobium abundance by microbiome and nitrogen model.",
+  col.names = c("Contrast", "Microbiome", "Cohen's d", "SE", "df", "CI Lower", "CI Upper")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped", "scale_down"))
+```
+
+
+
+
+
+\newpage
+## Rhizobium Relative Abundance
+
+```{r Estimated Marginal Means: Rhizobium Relative Abundance by Microbiome and Nitrogen, echo = TRUE}
+## Set the estimated marginal means
+# Microbiome
+rhizobium.relative.abundance.M.emmeans <- emmeans(
+  rhizobium.relative.abundance.LM,
+  specs = pairwise ~ Microbiome_Global,
+  weights = "cells",
+  adjust = "none"
+)
+
+# Nitrogen
+rhizobium.relative.abundance.N.emmeans <- emmeans(
+  rhizobium.relative.abundance.LM,
+  specs = pairwise ~ Nitrogen,
+  weights = "cells",
+  adjust = "none"
+)
+
+# Microbiome x Nitrogen
+rhizobium.relative.abundance.MN.emmeans <- emmeans(
+  rhizobium.relative.abundance.LM,
+  specs = pairwise ~ Nitrogen | Microbiome_Global,
+  weights = "cells",
+  adjust = "none"
+)
+```
+
+
+
+\newpage
+### Estimated Marginal Means & Trends
+
+```{r emmeans: Rhizobium Relative Abundance by Microbiome, echo = FALSE}
+kable(
+  tidy(rhizobium.relative.abundance.M.emmeans$emmeans),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Estimated marginal means of the main effect of microbiome in the rhizobium relative abundance by microbiome and nitrogen model.",
+  col.names = c("Microbiome", "Estimate", "SE", "df", "t", "P")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{10pt}
+
+```{r emmeans: Rhizobium Relative Abundance by Nitrogen, echo = FALSE}
+kable(
+  tidy(rhizobium.relative.abundance.N.emmeans$emmeans),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Estimated marginal means of the main effect of nitrogen in the rhizobium relative abundance by microbiome and nitrogen model.",
+  col.names = c("Nitrogen", "Estimate", "SE", "df", "t", "P")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{10pt}
+
+```{r emmeans: Rhizobium Relative Abundance by Nitrogen and Rhizobia, echo = FALSE}
+kable(
+  tidy(rhizobium.relative.abundance.MN.emmeans$emmeans),
+  booktabs = TRUE,
+  digits = 6,
+  caption = "Estimated marginal means of the interaction between microbiome and rhizobium relative abundance in the rhizobium relative abundance by microbiome and nitrogen model.",
+  col.names = c("Nitrogen", "Microbiome", "Estimate", "SE", "df", "t", "P")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+
+
+\newpage
+### Contrasts
+
+```{r Post Hoc Comparisons: Rhizobium Relative Abundances by Microbiome, echo = FALSE}
+kable(
+  tidy(rhizobium.relative.abundance.M.emmeans$contrasts),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Post-hoc comparisons of the main effect of microbiome in the rhizobium relative abundance by microbiome and nitrogen model.",
+  col.names = c("Term", "Contrast", "Null Value", "Estimate", "SE", "df", "t", "P")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{10pt}
+
+```{r Post Hoc Comparisons: Rhizobium Relative Abundances by Nitrogen, echo = FALSE}
+kable(
+  tidy(rhizobium.relative.abundance.N.emmeans$contrasts),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Post-hoc comparisons of the main effect of nitrogen in the rhizobium relative abundance by microbiome and nitrogen model.",
+  col.names = c("Term", "Contrast", "Null Value", "Estimate", "SE", "df", "t", "P")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{10pt}
+
+```{r Post Hoc Comparisons: Rhizobium Relative Abundances by Microbiome and Nitrogen, echo = FALSE}
+kable(
+  tidy(rhizobium.relative.abundance.MN.emmeans$contrasts),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Post-hoc comparisons of the interaction between microbiome and nitrogen abundance in the rhizobium relative abundance by microbiome and nitrogen model.",
+  col.names = c("Microbiome", "Term", "Contrast", "Null Value", "Estimate", "SE", "df", "t", "P")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+
+
+\newpage
+### Contrast Effect Sizes
+
+```{r Contrast Effect Sizes: Rhizobium Relative Abundances by Microbiome, echo = FALSE}
+kable(
+  eff_size(rhizobium.relative.abundance.M.emmeans,
+    sigma = sigma(rhizobium.relative.abundance.LM),
+    edf = df.residual(rhizobium.relative.abundance.LM)
+  ),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Effect sizes for the constrasts by microbiome in the rhizobium relative abundance by microbiome and nitrogen model.",
+  col.names = c("Contrast", "Cohen's d", "SE", "df", "CI Lower", "CI Upper")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped", "scale_down"))
+```
+
+\vspace{10pt}
+
+```{r Contrast Effect Sizes: Rhizobium Relative Abundances by Nitrogen, echo = FALSE}
+kable(
+  eff_size(rhizobium.relative.abundance.N.emmeans,
+    sigma = sigma(rhizobium.relative.abundance.LM),
+    edf = df.residual(rhizobium.relative.abundance.LM)
+  ),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Effect sizes for the constrasts by nitrogen in the rhizobium relative abundance by microbiome and nitrogen model.",
+  col.names = c("Contrast", "Cohen's d", "SE", "df", "CI Lower", "CI Upper")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped", "scale_down"))
+```
+
+\vspace{10pt}
+
+```{r Contrast Effect Sizes: Rhizobium Relative Abundances by Microbiome and Nitrogen, echo = FALSE}
+kable(
+  eff_size(rhizobium.relative.abundance.MN.emmeans,
+    sigma = sigma(rhizobium.relative.abundance.LM),
+    edf = df.residual(rhizobium.relative.abundance.LM)
+  ),
+  booktabs = TRUE,
+  digits = 6,
+  caption = "Effect sizes for the constrasts by microbiome and nitrogen and rhizobia in the rhizobium relative abundance by microbiome and nitrogen model.",
+  col.names = c("Contrast", "Microbiome", "Cohen's d", "SE", "df", "CI Lower", "CI Upper")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped", "scale_down"))
+```
+
+
+
+
+
+
+
+\newpage
+# Supplementary: Inoculant Rhizobium Abundances Estimated Marginal Means
+
+```{r Estimated Marginal Means: Inoculant  Rhizobium Abundances, echo = TRUE}
+## Set the estimated marginal means
+inoculant.rhizobium.abundance.emmeans <- emmeans(
+  inoculant.rhizobium.abundance.GLM,
+  specs = pairwise ~ Inoculant_Type,
+  weights = "cells",
+  adjust = "none"
+)
+```
+
+
+## Estimated Marginal Means
+
+```{r emmeans: Inoculant  Rhizobium Abundances by Community Type, echo = FALSE}
+kable(
+  tidy(inoculant.rhizobium.abundance.emmeans$emmeans),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Estimated marginal means by community type in the rhizobium abundance by inoculant and control communities model.",
+  col.names = c("Community Type", "Estimate", "SE", "df", "t", "P")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{10pt}
+
+## Contrasts
+
+```{r Post Hoc Comparisons: Inoculant  Rhizobium Abundances by Community Type, echo = FALSE}
+kable(
+  tidy(inoculant.rhizobium.abundance.emmeans$contrasts),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Post-hoc comparisons by community type in the rhizobium abundance by inoculant and control communities model.",
+  col.names = c("Term", "Contrast", "Null Value", "Estimate", "SE", "df", "t", "P")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{10pt}
+
+## Contrast Effect Sizes
+
+```{r Contrast Effect Sizes: Inoculant  Rhizobium Abundances by Community Type, echo = FALSE}
+kable(
+  eff_size(inoculant.rhizobium.abundance.emmeans,
+    sigma = sigma(inoculant.rhizobium.abundance.GLM),
+    edf = df.residual(inoculant.rhizobium.abundance.GLM)
+  ),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Effect sizes for the constrasts by community type in the rhizobium abundance by inoculant and control communities model.",
+  col.names = c("Contrast", "Cohen's d", "SE", "df", "CI Lower", "CI Upper")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped", "scale_down"))
+```
+
+
+
+
+
+
+```{r Save Final Workspace, include = FALSE}
+save.image("data_analysis/8-microbiome_analyses/microbiome_analyses-workspace.RData")
+```
+
+
+
+
+
+
+
+
+
+
+\newpage
+# R Session Information
+
+```{r R Packages, echo = FALSE}
+df_session_packages <- devtools::session_info()$packages %>%
+  as.data.frame(.) %>%
+  filter(attached == TRUE) %>%
+  dplyr::select(loadedversion, date) %>%
+  rownames_to_column()
+
+colnames(df_session_packages) <- c("Package", "Loaded Version", "Date")
+
+kable(
+  df_session_packages,
+  booktabs = TRUE,
+  caption = "Packages required for data management and analysis."
+) %>%
+  kable_styling(
+    full_width = FALSE,
+    latex_options = c("HOLD_position", "striped")
+  )
+```

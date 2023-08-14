@@ -1,0 +1,1429 @@
+---
+title: "TRhizo-localAdaptation"
+subtitle: "Microbiome x Nitrogen Analyses"
+author: "David Murray-Stoker"
+output:
+  pdf_document:
+    toc: true
+    toc_depth: 4
+    fig_caption: yes
+    latex_engine: xelatex
+always_allow_html: true
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+knitr::opts_chunk$set(results = "hold", fig.pos = "H", fig.align = "center", out.width = "92.5%")
+options(knitr.graphics.error = FALSE)
+kableExtra::usepackage_latex("float")
+```
+
+```{r Load Packages for R Markdown, include = FALSE}
+library(kableExtra)
+library(knitr)
+```
+
+
+
+
+
+\newpage
+# Load Packages & Data
+
+```{r Load Packages & Data, echo = TRUE, results = "hide"}
+## Load the tidyverse
+library(tidyverse)
+
+## Packages for analysis
+library(broom)
+library(easystats)
+library(emmeans)
+library(lme4)
+library(lmerTest)
+
+## Read in data
+biomass.data <- read_rds(file = "data/cleaned_biomass_data.rds")
+nodule.data <- read_rds(file = "data/cleaned_nodule_data.rds")
+
+## Read in workspace
+# load("data_analysis/2-microbiome_x_nitrogen-analyses/M_x_N-analyses-workspace.RData")
+```
+
+
+
+
+
+\newpage
+# Aboveground Biomass M $\times$ N Model
+
+```{r Aboveground Biomass M x N Model, echo TRUE}
+aboveground.biomass.MN.LMM <- lmer(
+  sqrt(Aboveground_Biomass) ~ Microbiome * Nitrogen
+    + (1 | Microbiome:Population)
+    + (1 | Nitrogen:Population)
+    + (1 | Population)
+    + (1 | Block),
+  data = biomass.data,
+  REML = TRUE
+)
+```
+
+
+## Check Model Assumptions
+
+\vspace{4pt}
+
+```{r performance Diagnostics: Aboveground Biomass M x N Model Fit, echo = TRUE, eval = FALSE}
+## Check model convergence
+check_convergence(aboveground.biomass.MN.LMM)
+# Model converged
+
+## Check for boundary singularity
+check_singularity(aboveground.biomass.MN.LMM)
+# No singularity
+```
+
+\vspace{4pt}
+
+```{r performance Diagnostics: Aboveground Biomass M x N Model, echo = TRUE, eval = FALSE}
+## Visual assessment of model diagnostics
+check_model(aboveground.biomass.MN.LMM)
+# Visual check = assumptions met
+
+## Check normality of fixed effects (Shapiro-Wilk test)
+check_normality(aboveground.biomass.MN.LMM, effects = "fixed")
+# Suggests statistical non-normality of residuals (P < 0.001)
+# Mixed-effects models are robust to this assumption
+
+## Check normality of random effects
+check_normality(aboveground.biomass.MN.LMM, effects = "random")
+# M:P = Good
+# N:P = Non-normality detected (P = 0.006)
+# P = Good
+# B = Good
+
+## Check for non-constant variance of residuals (Breusch-Pagan test)
+check_heteroscedasticity(aboveground.biomass.MN.LMM)
+# Statistical evidence for heteroscedasticity (P < 0.001)
+
+## Check for homogeneity of variance (Bartlett test)
+check_homogeneity(aboveground.biomass.MN.LMM)
+# Variances differ between groups (P < 0.001)
+
+## Check for outliers
+check_outliers(aboveground.biomass.MN.LMM)
+# No outliers detected
+```
+
+
+\newpage
+## Marginal & Conditional R^2^
+
+```{r Marginal and Conditional R-squared: Aboveground Biomass M x N Model, echo = TRUE, results = "hide"}
+## Calculate the marginal and conditional R-squared
+MuMIn::r.squaredGLMM(aboveground.biomass.MN.LMM)
+# Marginal = 0.233
+# Conditional = 0.397
+```
+
+\vspace{4pt}
+
+## ANOVA
+
+```{r ANOVA: Aboveground Biomass M x N Model, echo = TRUE}
+## Fit an ANOVA with Type III sums-of-squares
+aboveground.biomass.MN.LMM.anova <- anova(
+  object = aboveground.biomass.MN.LMM,
+  type = "III",
+  ddf = "Kenward-Roger"
+)
+```
+
+\vspace{4pt}
+
+```{r ANOVA Table: Aboveground Biomass M x N Model, echo = FALSE}
+kable(
+  aboveground.biomass.MN.LMM.anova,
+  booktabs = TRUE,
+  digits = 3,
+  caption = "ANOVA table for the Aboveground Biomass M x N Model.",
+  col.names = c("Sums-of-Squares", "Mean-Square", "Num_df", "Den_df", "F", "P-value")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{4pt}
+
+## Partial $\eta^2$ for Fixed Effects
+
+```{r Partial Eta-Squared: Aboveground Biomass M x N Model, include = FALSE}
+## Calculating partial eta-squared for each factor in the ANOVA
+aboveground.biomass.MN.LMM.eta.squared <- eta_squared(
+  aboveground.biomass.MN.LMM.anova,
+  partial = TRUE
+)
+```
+
+\vspace{4pt}
+
+```{r Effect Size Table for Fixed Effects: Aboveground Biomass M x N Model, echo = FALSE}
+kable(
+  aboveground.biomass.MN.LMM.eta.squared,
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Table of the effect sizes for the fixed effects in the Aboveground Biomass M x N Model.",
+  col.names = c("Term", "Partial eta-squared", "CI", "CI_low", "CI_high")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+
+\newpage
+## ranova
+
+```{r ranova: Aboveground Biomass M x N Model, echo = TRUE}
+## Fit a ranova
+aboveground.biomass.MN.LMM.ranova <- ranova(
+  aboveground.biomass.MN.LMM,
+  reduce.terms = FALSE
+)
+```
+
+\vspace{4pt}
+
+```{r ranova Table: Aboveground Biomass M x N Model, echo = FALSE}
+kable(
+  aboveground.biomass.MN.LMM.ranova,
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Summary of the ranova for the Aboveground Biomass M x N Model.",
+  col.names = c("n_parameters", "log_likelihood", "AIC", "LRT", "df", "P-value")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{4pt}
+
+## ICC for Random Effects
+
+```{r ICC For Random Effects: Aboveground Biomass M x N Model, echo = FALSE}
+kable(
+  icc(aboveground.biomass.MN.LMM, by_group = TRUE),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Table of the effect sizes for the random effects in the Aboveground Biomass M x N Model.",
+  col.names = c("Term", "ICC")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+
+\newpage
+## Contrasts
+
+```{r emmeans: Aboveground Biomass, echo = TRUE}
+aboveground.biomass.M.emmeans <- emmeans(
+  aboveground.biomass.MN.LMM,
+  specs = pairwise ~ Microbiome,
+  weights = "cells",
+  adjust = "none"
+)
+
+aboveground.biomass.N.emmeans <- emmeans(
+  aboveground.biomass.MN.LMM,
+  specs = pairwise ~ Nitrogen,
+  weights = "cells",
+  adjust = "none"
+)
+
+aboveground.biomass.MxN.emmeans <- emmeans(
+  aboveground.biomass.MN.LMM,
+  specs = pairwise ~ Microbiome | Nitrogen,
+  weights = "cells",
+  adjust = "none"
+)
+```
+
+\vspace{4pt}
+
+```{r Post Hoc Comparisons: Aboveground Biomass by Microbiome, echo = FALSE}
+kable(
+  tidy(aboveground.biomass.M.emmeans$contrasts),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Post-hoc comparisons of the main effect of Microbiome in the Aboveground Biomass ANOVA.",
+  col.names = c("Term", "Contrast", "Null Value", "Estimate", "SE", "df", "t", "P")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{4pt}
+
+```{r Post Hoc Comparisons: Aboveground Biomass by Nitrogen, echo = FALSE}
+kable(
+  tidy(aboveground.biomass.N.emmeans$contrasts),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Post-hoc comparisons of the main effect of Nitrogen in the Aboveground Biomass ANOVA.",
+  col.names = c("Term", "Contrast", "Null Value", "Estimate", "SE", "df", "t", "P")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{4pt}
+
+```{r Post Hoc Comparisons: Aboveground Biomass by Microbiome and Nitrogen, echo = FALSE}
+kable(
+  tidy(aboveground.biomass.MxN.emmeans$contrasts),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Post-hoc comparisons of the interaction between Microbiome and Nitrogen in the Aboveground Biomass ANOVA.",
+  col.names = c("Factor_1", "Factor_2", "Contrast", "Null Value", "Estimate", "SE", "df", "t", "P")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+
+\newpage
+## Contrasts (Effect Sizes)
+
+```{r Contrast Effect Sizes: Aboveground Biomass by Microbiome, echo = FALSE}
+kable(
+  eff_size(aboveground.biomass.M.emmeans,
+    sigma = sigma(aboveground.biomass.MN.LMM),
+    edf = df.residual(aboveground.biomass.MN.LMM)
+  ),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Effect sizes for the constrasts by Microbiome in the Aboveground Biomass ANOVA.",
+  col.names = c("Contrast", "Cohen's d", "SE", "df", "CI Lower", "CI Upper")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped", "scale_down"))
+```
+
+\vspace{4pt}
+
+```{r Contrast Effect Sizes: Aboveground Biomass by Nitrogen, echo = FALSE}
+kable(
+  eff_size(aboveground.biomass.N.emmeans,
+    sigma = sigma(aboveground.biomass.MN.LMM),
+    edf = df.residual(aboveground.biomass.MN.LMM)
+  ),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Effect sizes for the constrasts by Nitrogen in the Aboveground Biomass ANOVA.",
+  col.names = c("Contrast", "Cohen's d", "SE", "df", "CI Lower", "CI Upper")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped", "scale_down"))
+```
+
+\vspace{4pt}
+
+```{r Contrast Effect Sizes: Aboveground Biomass by Microbiome and Nitrogen, echo = FALSE}
+kable(
+  eff_size(aboveground.biomass.MxN.emmeans,
+    sigma = sigma(aboveground.biomass.MN.LMM),
+    edf = df.residual(aboveground.biomass.MN.LMM)
+  ),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Effect sizes for the constrasts by Microbiome and Nitrogen in the Aboveground Biomass ANOVA.",
+  col.names = c("Contrast", "Nitrogen", "Cohen's d", "SE", "df", "CI Lower", "CI Upper")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped", "scale_down"))
+```
+
+
+
+
+
+\newpage
+# Belowground Biomass M $\times$ N Model
+
+```{r Belowground Biomass M x N Model, echo TRUE}
+belowground.biomass.MN.LMM <- lmer(
+  sqrt(Belowground_Biomass) ~ Microbiome * Nitrogen
+    + (1 | Population)
+    + (1 | Block),
+  data = biomass.data,
+  REML = TRUE
+)
+```
+
+
+## Check Model Assumptions
+
+```{r performance Diagnostics: Belowground Biomass M x N Model Fit, echo = TRUE, eval = FALSE}
+## Check model convergence
+check_convergence(belowground.biomass.MN.LMM)
+# Model converged
+
+## Check for boundary singularity
+check_singularity(belowground.biomass.MN.LMM)
+# No singularity
+```
+
+\vspace{4pt}
+
+```{r performance Diagnostics: Belowground Biomass M x N Model, echo = TRUE, eval = FALSE}
+## Visual assessment of model diagnostics
+check_model(belowground.biomass.MN.LMM)
+# Visual check = assumptions met
+
+## Check normality of fixed effects (Shapiro-Wilk test)
+check_normality(belowground.biomass.MN.LMM, effects = "fixed")
+# Suggests statistical non-normality of residuals (P < 0.001)
+# Mixed-effects models are robust to this assumption
+
+## Check normality of random effects
+check_normality(belowground.biomass.MN.LMM, effects = "random")
+# P = Good
+# B = Good
+
+## Check for non-constant variance of residuals (Breusch-Pagan test)
+check_heteroscedasticity(belowground.biomass.MN.LMM)
+# Statistical evidence for heteroscedasticity (P < 0.001)
+
+## Check for homogeneity of variance (Bartlett test)
+check_homogeneity(belowground.biomass.MN.LMM)
+# Variances differ between groups (P < 0.001)
+
+## Check for outliers
+check_outliers(belowground.biomass.MN.LMM)
+# No outliers detected
+```
+
+
+\newpage
+## Marginal & Conditional R^2^
+
+```{r Marginal and Conditional R-squared: Belowground Biomass M x N Model, echo = TRUE, results = "hide"}
+## Calculate the marginal and conditional R-squared
+MuMIn::r.squaredGLMM(belowground.biomass.MN.LMM)
+# Marginal = 0.292
+# Conditional = 0.376
+```
+
+\vspace{4pt}
+
+## ANOVA
+
+```{r ANOVA: Belowground Biomass M x N Model, echo = TRUE}
+## Fit an ANOVA with Type III sums-of-squares
+belowground.biomass.MN.LMM.anova <- anova(
+  object = belowground.biomass.MN.LMM,
+  type = "III",
+  ddf = "Kenward-Roger"
+)
+```
+
+\vspace{4pt}
+
+```{r ANOVA Table: Belowground Biomass M x N Model, echo = FALSE}
+kable(
+  belowground.biomass.MN.LMM.anova,
+  booktabs = TRUE,
+  digits = 3,
+  caption = "ANOVA table for the Belowground Biomass M x N Model.",
+  col.names = c("Sums-of-Squares", "Mean-Square", "Num_df", "Den_df", "F", "P-value")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{4pt}
+
+## Partial $\eta^2$ for Fixed Effects
+
+```{r Partial Eta-Squared: Belowground Biomass M x N Model, include = FALSE}
+## Calculating partial eta-squared for each factor in the ANOVA
+belowground.biomass.MN.LMM.eta.squared <- eta_squared(
+  belowground.biomass.MN.LMM.anova,
+  partial = TRUE
+)
+```
+
+\vspace{4pt}
+
+```{r Effect Size Table for Fixed Effects: Belowground Biomass M x N Model, echo = FALSE}
+kable(
+  belowground.biomass.MN.LMM.eta.squared,
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Table of the effect sizes for the fixed effects in the Belowground Biomass M x N Model.",
+  col.names = c("Term", "Partial eta-squared", "CI", "CI_low", "CI_high")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+
+\newpage
+## ranova
+
+```{r ranova: Belowground Biomass M x N Model, echo = TRUE}
+## Fit a ranova
+belowground.biomass.MN.LMM.ranova <- ranova(
+  belowground.biomass.MN.LMM,
+  reduce.terms = FALSE
+)
+```
+
+\vspace{4pt}
+
+```{r ranova Table: Belowground Biomass M x N Model, echo = FALSE}
+kable(
+  belowground.biomass.MN.LMM.ranova,
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Summary of the ranova for the Belowground Biomass M x N Model.",
+  col.names = c("n_parameters", "log_likelihood", "AIC", "LRT", "df", "P-value")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{4pt}
+
+## ICC for Random Effects
+
+```{r ICC For Random Effects: Belowground Biomass M x N Model, echo = FALSE}
+kable(
+  icc(belowground.biomass.MN.LMM, by_group = TRUE),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Table of the effect sizes for the random effects in the Belowground Biomass M x N Model.",
+  col.names = c("Term", "ICC")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+
+\newpage
+## Contrasts
+
+```{r emmeans: Belowground Biomass, echo = TRUE}
+belowground.biomass.M.emmeans <- emmeans(
+  belowground.biomass.MN.LMM,
+  specs = pairwise ~ Microbiome,
+  weights = "cells",
+  adjust = "none"
+)
+
+belowground.biomass.N.emmeans <- emmeans(
+  belowground.biomass.MN.LMM,
+  specs = pairwise ~ Nitrogen,
+  weights = "cells",
+  adjust = "none"
+)
+
+belowground.biomass.MxN.emmeans <- emmeans(
+  belowground.biomass.MN.LMM,
+  specs = pairwise ~ Microbiome | Nitrogen,
+  weights = "cells",
+  adjust = "none"
+)
+```
+
+\vspace{4pt}
+
+```{r Post Hoc Comparisons: Belowground Biomass by Microbiome, echo = FALSE}
+kable(
+  tidy(belowground.biomass.M.emmeans$contrasts),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Post-hoc comparisons of the main effect of Microbiome in the Belowground Biomass ANOVA.",
+  col.names = c("Term", "Contrast", "Null Value", "Estimate", "SE", "df", "t", "P")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{4pt}
+
+```{r Post Hoc Comparisons: Belowground Biomass by Nitrogen, echo = FALSE}
+kable(
+  tidy(belowground.biomass.N.emmeans$contrasts),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Post-hoc comparisons of the main effect of Nitrogen in the Belowground Biomass ANOVA.",
+  col.names = c("Term", "Contrast", "Null Value", "Estimate", "SE", "df", "t", "P")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{4pt}
+
+```{r Post Hoc Comparisons: Belowground Biomass by Microbiome and Nitrogen, echo = FALSE}
+kable(
+  tidy(belowground.biomass.MxN.emmeans$contrasts),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Post-hoc comparisons of the interaction between Microbiome and Nitrogen in the Belowground Biomass ANOVA.",
+  col.names = c("Factor_1", "Factor_2", "Contrast", "Null Value", "Estimate", "SE", "df", "t", "P")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+
+\newpage
+## Contrasts (Effect Sizes)
+
+```{r Contrast Effect Sizes: Belowground Biomass by Microbiome, echo = FALSE}
+kable(
+  eff_size(belowground.biomass.M.emmeans,
+    sigma = sigma(belowground.biomass.MN.LMM),
+    edf = df.residual(belowground.biomass.MN.LMM)
+  ),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Effect sizes for the constrasts by Microbiome in the Belowground Biomass ANOVA.",
+  col.names = c("Contrast", "Cohen's d", "SE", "df", "CI Lower", "CI Upper")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped", "scale_down"))
+```
+
+\vspace{4pt}
+
+```{r Contrast Effect Sizes: Belowground Biomass by Nitrogen, echo = FALSE}
+kable(
+  eff_size(belowground.biomass.N.emmeans,
+    sigma = sigma(belowground.biomass.MN.LMM),
+    edf = df.residual(belowground.biomass.MN.LMM)
+  ),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Effect sizes for the constrasts by Nitrogen in the Belowground Biomass ANOVA.",
+  col.names = c("Contrast", "Cohen's d", "SE", "df", "CI Lower", "CI Upper")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped", "scale_down"))
+```
+
+\vspace{4pt}
+
+```{r Contrast Effect Sizes: Belowground Biomass by Microbiome and Nitrogen, echo = FALSE}
+kable(
+  eff_size(belowground.biomass.MxN.emmeans,
+    sigma = sigma(belowground.biomass.MN.LMM),
+    edf = df.residual(belowground.biomass.MN.LMM)
+  ),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Effect sizes for the constrasts by Microbiome and Nitrogen in the Belowground Biomass ANOVA.",
+  col.names = c("Contrast", "Nitrogen", "Cohen's d", "SE", "df", "CI Lower", "CI Upper")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped", "scale_down"))
+```
+
+
+
+
+
+\newpage
+# Nodule Density M $\times$ N Model
+
+```{r Nodule Density M x N Model, echo TRUE}
+nodule.density.MN.LMM <- lmer(
+  log(Nodule_Density + 1) ~ Microbiome * Nitrogen
+    + (1 | Microbiome:Population)
+    + (1 | Nitrogen:Population)
+    + (1 | Microbiome:Nitrogen:Population)
+    + (1 | Population)
+    + (1 | Block),
+  data = nodule.data,
+  REML = TRUE
+)
+```
+
+
+## Check Model Assumptions
+
+```{r performance Diagnostics: Nodule Density M x N Model Fit, echo = TRUE, eval = FALSE}
+## Check model convergence
+check_convergence(nodule.density.MN.LMM)
+# Model converged
+
+## Check for boundary singularity
+check_singularity(nodule.density.MN.LMM)
+# No singularity
+```
+
+\vspace{4pt}
+
+```{r performance Diagnostics: Nodule Density M x N Model, echo = TRUE, eval = FALSE}
+## Visual assessment of model diagnostics
+check_model(nodule.density.MN.LMM)
+# Visual check = assumptions met
+
+## Check normality of fixed effects (Shapiro-Wilk test)
+check_normality(nodule.density.MN.LMM, effects = "fixed")
+# Suggests statistical non-normality of residuals (P < 0.001)
+# Mixed-effects models are robust to this assumption
+
+## Check normality of random effects
+check_normality(nodule.density.MN.LMM, effects = "random")
+# M:P = Good
+# N:P = Good
+# M:N:P = Good
+# P = Good
+# B = Good
+
+## Check for non-constant variance of residuals (Breusch-Pagan test)
+check_heteroscedasticity(nodule.density.MN.LMM)
+# Statistical evidence for heteroscedasticity (P < 0.001)
+
+## Check for homogeneity of variance (Bartlett test)
+check_homogeneity(nodule.density.MN.LMM)
+# Variances differ between groups (P < 0.001)
+
+## Check for outliers
+check_outliers(nodule.density.MN.LMM)
+# 1 outlier detected
+```
+
+
+\newpage
+## Marginal & Conditional R^2^
+
+```{r Marginal and Conditional R-squared: Nodule Density M x N Model, echo = TRUE, results = "hide"}
+## Calculate the marginal and conditional R-squared
+MuMIn::r.squaredGLMM(nodule.density.MN.LMM)
+# Marginal = 0.061
+# Conditional = 0.261
+```
+
+\vspace{4pt}
+
+## ANOVA
+
+```{r ANOVA: Nodule Density M x N Model, echo = TRUE}
+## Fit an ANOVA with Type III sums-of-squares
+nodule.density.MN.LMM.anova <- anova(
+  object = nodule.density.MN.LMM,
+  type = "III",
+  ddf = "Kenward-Roger"
+)
+```
+
+\vspace{4pt}
+
+```{r ANOVA Table: Nodule Density M x N Model, echo = FALSE}
+kable(
+  nodule.density.MN.LMM.anova,
+  booktabs = TRUE,
+  digits = 3,
+  caption = "ANOVA table for the Nodule Density M x N Model.",
+  col.names = c("Sums-of-Squares", "Mean-Square", "Num_df", "Den_df", "F", "P-value")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{4pt}
+
+## Partial $\eta^2$ for Fixed Effects
+
+```{r Partial Eta-Squared: Nodule Density M x N Model, include = FALSE}
+## Calculating partial eta-squared for each factor in the ANOVA
+nodule.density.MN.LMM.eta.squared <- eta_squared(
+  nodule.density.MN.LMM.anova,
+  partial = TRUE
+)
+```
+
+\vspace{4pt}
+
+```{r Effect Size Table for Fixed Effects: Nodule Density M x N Model, echo = FALSE}
+kable(
+  nodule.density.MN.LMM.eta.squared,
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Table of the effect sizes for the fixed effects in the Nodule Density M x N Model.",
+  col.names = c("Term", "Partial eta-squared", "CI", "CI_low", "CI_high")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+
+\newpage
+## ranova
+
+```{r ranova: Nodule Density M x N Model, echo = TRUE}
+## Fit a ranova
+nodule.density.MN.LMM.ranova <- ranova(
+  nodule.density.MN.LMM,
+  reduce.terms = FALSE
+)
+```
+
+\vspace{4pt}
+
+```{r ranova Table: Nodule Density M x N Model, echo = FALSE}
+kable(
+  nodule.density.MN.LMM.ranova,
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Summary of the ranova for the Nodule Density M x N Model.",
+  col.names = c("n_parameters", "log_likelihood", "AIC", "LRT", "df", "P-value")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{4pt}
+
+## ICC for Random Effects
+
+```{r ICC For Random Effects: Nodule Density M x N Model, echo = FALSE}
+kable(
+  icc(nodule.density.MN.LMM, by_group = TRUE),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Table of the effect sizes for the random effects in the Nodule Density M x N Model.",
+  col.names = c("Term", "ICC")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+
+\newpage
+## Contrasts
+
+```{r emmeans: Nodule Density, echo = TRUE}
+nodule.density.M.emmeans <- emmeans(
+  nodule.density.MN.LMM,
+  specs = pairwise ~ Microbiome,
+  weights = "cells",
+  adjust = "none"
+)
+
+nodule.density.N.emmeans <- emmeans(
+  nodule.density.MN.LMM,
+  specs = pairwise ~ Nitrogen,
+  weights = "cells",
+  adjust = "none"
+)
+
+nodule.density.MxN.emmeans <- emmeans(
+  nodule.density.MN.LMM,
+  specs = pairwise ~ Microbiome | Nitrogen,
+  weights = "cells",
+  adjust = "none"
+)
+```
+
+\vspace{4pt}
+
+```{r Post Hoc Comparisons: Nodule Density by Microbiome, echo = FALSE}
+kable(
+  tidy(nodule.density.M.emmeans$contrasts),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Post-hoc comparisons of the main effect of Microbiome in the Nodule Density ANOVA.",
+  col.names = c("Term", "Contrast", "Null Value", "Estimate", "SE", "df", "t", "P")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{4pt}
+
+```{r Post Hoc Comparisons: Nodule Density by Nitrogen, echo = FALSE}
+kable(
+  tidy(nodule.density.N.emmeans$contrasts),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Post-hoc comparisons of the main effect of Nitrogen in the Nodule Density ANOVA.",
+  col.names = c("Term", "Contrast", "Null Value", "Estimate", "SE", "df", "t", "P")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{4pt}
+
+```{r Post Hoc Comparisons: Nodule Density by Microbiome and Nitrogen, echo = FALSE}
+kable(
+  tidy(nodule.density.MxN.emmeans$contrasts),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Post-hoc comparisons of the interaction between Microbiome and Nitrogen in the Nodule Density ANOVA.",
+  col.names = c("Factor_1", "Factor_2", "Contrast", "Null Value", "Estimate", "SE", "df", "t", "P")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+
+\newpage
+## Contrasts (Effect Sizes)
+
+```{r Contrast Effect Sizes: Nodule Density by Microbiome, echo = FALSE}
+kable(
+  eff_size(nodule.density.M.emmeans,
+    sigma = sigma(nodule.density.MN.LMM),
+    edf = df.residual(nodule.density.MN.LMM)
+  ),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Effect sizes for the constrasts by Microbiome in the Nodule Density ANOVA.",
+  col.names = c("Contrast", "Cohen's d", "SE", "df", "CI Lower", "CI Upper")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped", "scale_down"))
+```
+
+\vspace{4pt}
+
+```{r Contrast Effect Sizes: Nodule Density by Nitrogen, echo = FALSE}
+kable(
+  eff_size(nodule.density.N.emmeans,
+    sigma = sigma(nodule.density.MN.LMM),
+    edf = df.residual(nodule.density.MN.LMM)
+  ),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Effect sizes for the constrasts by Nitrogen in the Nodule Density ANOVA.",
+  col.names = c("Contrast", "Cohen's d", "SE", "df", "CI Lower", "CI Upper")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped", "scale_down"))
+```
+
+\vspace{4pt}
+
+```{r Contrast Effect Sizes: Nodule Density by Microbiome and Nitrogen, echo = FALSE}
+kable(
+  eff_size(nodule.density.MxN.emmeans,
+    sigma = sigma(nodule.density.MN.LMM),
+    edf = df.residual(nodule.density.MN.LMM)
+  ),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Effect sizes for the constrasts by Microbiome and Nitrogen in the Nodule Density ANOVA.",
+  col.names = c("Contrast", "Nitrogen", "Cohen's d", "SE", "df", "CI Lower", "CI Upper")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped", "scale_down"))
+```
+
+
+
+
+
+\newpage
+# Fixing Nodule Density M $\times$ N Model
+
+```{r Fixing Nodule Density M x N Model, echo TRUE}
+fixing.nodule.density.MN.LMM <- lmer(
+  log(Fixing_Nodule_Density + 1) ~ Microbiome * Nitrogen
+    + (1 | Microbiome:Population)
+    + (1 | Nitrogen:Population)
+    + (1 | Population)
+    + (1 | Block),
+  data = nodule.data,
+  REML = TRUE
+)
+```
+
+
+## Check Model Assumptions
+
+```{r performance Diagnostics: Fixing Nodule Density M x N Model Fit, echo = TRUE, eval = FALSE}
+## Check model convergence
+check_convergence(fixing.nodule.density.MN.LMM)
+# Model converged
+
+## Check for boundary singularity
+check_singularity(fixing.nodule.density.MN.LMM)
+# No singularity
+```
+
+\vspace{4pt}
+
+```{r performance Diagnostics: Fixing Nodule Density M x N Model, echo = TRUE, eval = FALSE}
+## Visual assessment of model diagnostics
+check_model(fixing.nodule.density.MN.LMM)
+# Visual check = assumptions met
+
+## Check normality of fixed effects (Shapiro-Wilk test)
+check_normality(fixing.nodule.density.MN.LMM, effects = "fixed")
+# Suggests statistical non-normality of residuals (P < 0.001)
+# Mixed-effects models are robust to this assumption
+
+## Check normality of random effects
+check_normality(fixing.nodule.density.MN.LMM, effects = "random")
+# M:P = Good
+# N:P = Good
+# P = Non-normality detected (P < 0.001)
+# B = Good
+
+## Check for non-constant variance of residuals (Breusch-Pagan test)
+check_heteroscedasticity(fixing.nodule.density.MN.LMM)
+# Statistical evidence for heteroscedasticity (P < 0.001)
+
+## Check for homogeneity of variance (Bartlett test)
+check_homogeneity(fixing.nodule.density.MN.LMM)
+# Variances differ between groups (P < 0.001)
+
+## Check for outliers
+check_outliers(fixing.nodule.density.MN.LMM)
+# 1 outlier detected
+```
+
+
+\newpage
+## Marginal & Conditional R^2^
+
+```{r Marginal and Conditional R-squared: Fixing Nodule Density M x N Model, echo = TRUE, results = "hide"}
+## Calculate the marginal and conditional R-squared
+MuMIn::r.squaredGLMM(fixing.nodule.density.MN.LMM)
+# Marginal = 0.043
+# Conditional = 0.198
+```
+
+\vspace{4pt}
+
+## ANOVA
+
+```{r ANOVA: Fixing Nodule Density M x N Model, echo = TRUE}
+## Fit an ANOVA with Type III sums-of-squares
+fixing.nodule.density.MN.LMM.anova <- anova(
+  object = fixing.nodule.density.MN.LMM,
+  type = "III",
+  ddf = "Kenward-Roger"
+)
+```
+
+\vspace{4pt}
+
+```{r ANOVA Table: Fixing Nodule Density M x N Model, echo = FALSE}
+kable(
+  fixing.nodule.density.MN.LMM.anova,
+  booktabs = TRUE,
+  digits = 3,
+  caption = "ANOVA table for the Fixing Nodule Density M x N Model.",
+  col.names = c("Sums-of-Squares", "Mean-Square", "Num_df", "Den_df", "F", "P-value")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{4pt}
+
+## Partial $\eta^2$ for Fixed Effects
+
+```{r Partial Eta-Squared: Fixing Nodule Density M x N Model, include = FALSE}
+## Calculating partial eta-squared for each factor in the ANOVA
+fixing.nodule.density.MN.LMM.eta.squared <- eta_squared(
+  fixing.nodule.density.MN.LMM.anova,
+  partial = TRUE
+)
+```
+
+\vspace{4pt}
+
+```{r Effect Size Table for Fixed Effects: Fixing Nodule Density M x N Model, echo = FALSE}
+kable(
+  fixing.nodule.density.MN.LMM.eta.squared,
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Table of the effect sizes for the fixed effects in the Fixing Nodule Density M x N Model.",
+  col.names = c("Term", "Partial eta-squared", "CI", "CI_low", "CI_high")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+
+\newpage
+## ranova
+
+```{r ranova: Fixing Nodule Density M x N Model, echo = TRUE}
+## Fit a ranova
+fixing.nodule.density.MN.LMM.ranova <- ranova(
+  fixing.nodule.density.MN.LMM,
+  reduce.terms = FALSE
+)
+```
+
+\vspace{4pt}
+
+```{r ranova Table: Fixing Nodule Density M x N Model, echo = FALSE}
+kable(
+  fixing.nodule.density.MN.LMM.ranova,
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Summary of the ranova for the Fixing Nodule Density M x N Model.",
+  col.names = c("n_parameters", "log_likelihood", "AIC", "LRT", "df", "P-value")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{4pt}
+
+## ICC for Random Effects
+
+```{r ICC For Random Effects: Fixing Nodule Density M x N Model, echo = FALSE}
+kable(
+  icc(fixing.nodule.density.MN.LMM, by_group = TRUE),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Table of the effect sizes for the random effects in the Fixing Nodule Density M x N Model.",
+  col.names = c("Term", "ICC")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+
+\newpage
+## Contrasts
+
+```{r emmeans: Fixing Nodule Density, echo = TRUE}
+fixing.nodule.density.M.emmeans <- emmeans(
+  fixing.nodule.density.MN.LMM,
+  specs = pairwise ~ Microbiome,
+  weights = "cells",
+  adjust = "none"
+)
+
+fixing.nodule.density.N.emmeans <- emmeans(
+  fixing.nodule.density.MN.LMM,
+  specs = pairwise ~ Nitrogen,
+  weights = "cells",
+  adjust = "none"
+)
+
+fixing.nodule.density.MxN.emmeans <- emmeans(
+  fixing.nodule.density.MN.LMM,
+  specs = pairwise ~ Microbiome | Nitrogen,
+  weights = "cells",
+  adjust = "none"
+)
+```
+
+\vspace{4pt}
+
+```{r Post Hoc Comparisons: Fixing Nodule Density by Microbiome, echo = FALSE}
+kable(
+  tidy(fixing.nodule.density.M.emmeans$contrasts),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Post-hoc comparisons of the main effect of Microbiome in the Fixing Nodule Density ANOVA.",
+  col.names = c("Term", "Contrast", "Null Value", "Estimate", "SE", "df", "t", "P")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{4pt}
+
+```{r Post Hoc Comparisons: Fixing Nodule Density by Nitrogen, echo = FALSE}
+kable(
+  tidy(fixing.nodule.density.N.emmeans$contrasts),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Post-hoc comparisons of the main effect of Nitrogen in the Fixing Nodule Density ANOVA.",
+  col.names = c("Term", "Contrast", "Null Value", "Estimate", "SE", "df", "t", "P")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{4pt}
+
+```{r Post Hoc Comparisons: Fixing Nodule Density by Microbiome and Nitrogen, echo = FALSE}
+kable(
+  tidy(fixing.nodule.density.MxN.emmeans$contrasts),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Post-hoc comparisons of the interaction between Microbiome and Nitrogen in the Fixing Nodule Density ANOVA.",
+  col.names = c("Factor_1", "Factor_2", "Contrast", "Null Value", "Estimate", "SE", "df", "t", "P")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+
+\newpage
+## Contrasts (Effect Sizes)
+
+```{r Contrast Effect Sizes: Fixing Nodule Density by Microbiome, echo = FALSE}
+kable(
+  eff_size(fixing.nodule.density.M.emmeans,
+    sigma = sigma(fixing.nodule.density.MN.LMM),
+    edf = df.residual(fixing.nodule.density.MN.LMM)
+  ),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Effect sizes for the constrasts by Microbiome in the Fixing Nodule Density ANOVA.",
+  col.names = c("Contrast", "Cohen's d", "SE", "df", "CI Lower", "CI Upper")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped", "scale_down"))
+```
+
+\vspace{4pt}
+
+```{r Contrast Effect Sizes: Fixing Nodule Density by Nitrogen, echo = FALSE}
+kable(
+  eff_size(fixing.nodule.density.N.emmeans,
+    sigma = sigma(fixing.nodule.density.MN.LMM),
+    edf = df.residual(fixing.nodule.density.MN.LMM)
+  ),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Effect sizes for the constrasts by Nitrogen in the Fixing Nodule Density ANOVA.",
+  col.names = c("Contrast", "Cohen's d", "SE", "df", "CI Lower", "CI Upper")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped", "scale_down"))
+```
+
+\vspace{4pt}
+
+```{r Contrast Effect Sizes: Fixing Nodule Density by Microbiome and Nitrogen, echo = FALSE}
+kable(
+  eff_size(fixing.nodule.density.MxN.emmeans,
+    sigma = sigma(fixing.nodule.density.MN.LMM),
+    edf = df.residual(fixing.nodule.density.MN.LMM)
+  ),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Effect sizes for the constrasts by Microbiome and Nitrogen in theFixing  Nodule Density ANOVA.",
+  col.names = c("Contrast", "Nitrogen", "Cohen's d", "SE", "df", "CI Lower", "CI Upper")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped", "scale_down"))
+```
+
+
+
+
+
+\newpage
+# Supplementary: Estimated Marginal Means
+
+
+## Aboveground Biomass M $\times$ N Model
+
+```{r Marginal Means: Aboveground Biomass by Microbiome, echo = FALSE}
+kable(
+  tidy(aboveground.biomass.M.emmeans$emmeans),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Estimated marginal means of the main effect of Microbiome in the Aboveground Biomass ANOVA.",
+  col.names = c("Microbiome", "Estimate", "SE", "df", "t", "P")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{4pt}
+
+```{r Marginal Means: Aboveground Biomass by Nitrogen, echo = FALSE}
+kable(
+  tidy(aboveground.biomass.N.emmeans$emmeans),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Estimated marginal means of the main effect of Nitrogen in the Aboveground Biomass ANOVA.",
+  col.names = c("Nitrogen", "Estimate", "SE", "df", "t", "P")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{4pt}
+
+```{r Marginal Means: Aboveground Biomass by Microbiome and Nitrogen, echo = FALSE}
+kable(
+  tidy(aboveground.biomass.MxN.emmeans$emmeans),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Estimated marginal means of the interaction between Microbiome and Nitrogen in the Aboveground Biomass ANOVA.",
+  col.names = c("Microbiome", "Nitrogen", "Estimate", "SE", "df", "t", "P")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+
+
+\newpage
+## Belowground Biomass M $\times$ N Model
+
+```{r Marginal Means: Belowground Biomass by Microbiome, echo = FALSE}
+kable(
+  tidy(belowground.biomass.M.emmeans$emmeans),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Estimated marginal means of the main effect of Microbiome in the Belowground Biomass ANOVA.",
+  col.names = c("Microbiome", "Estimate", "SE", "df", "t", "P")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{4pt}
+
+```{r Marginal Means: Belowground Biomass by Nitrogen, echo = FALSE}
+kable(
+  tidy(belowground.biomass.N.emmeans$emmeans),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Estimated marginal means of the main effect of Nitrogen in the Belowground Biomass ANOVA.",
+  col.names = c("Nitrogen", "Estimate", "SE", "df", "t", "P")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{4pt}
+
+```{r Marginal Means: Belowground Biomass by Microbiome and Nitrogen, echo = FALSE}
+kable(
+  tidy(belowground.biomass.MxN.emmeans$emmeans),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Estimated marginal means of the interaction between Microbiome and Nitrogen in the Belowground Biomass ANOVA.",
+  col.names = c("Microbiome", "Nitrogen", "Estimate", "SE", "df", "t", "P")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+
+
+\newpage
+## Nodule Density M $\times$ N Model
+
+```{r Marginal Means: Nodule Density by Microbiome, echo = FALSE}
+kable(
+  tidy(nodule.density.M.emmeans$emmeans),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Estimated marginal means of the main effect of Microbiome in the Nodule Density ANOVA.",
+  col.names = c("Microbiome", "Estimate", "SE", "df", "t", "P")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{4pt}
+
+```{r Marginal Means: Nodule Density by Nitrogen, echo = FALSE}
+kable(
+  tidy(nodule.density.N.emmeans$emmeans),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Estimated marginal means of the main effect of Nitrogen in the Nodule Density ANOVA.",
+  col.names = c("Nitrogen", "Estimate", "SE", "df", "t", "P")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{4pt}
+
+```{r Marginal Means: Nodule Density by Microbiome and Nitrogen, echo = FALSE}
+kable(
+  tidy(nodule.density.MxN.emmeans$emmeans),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Estimated marginal means of the interaction between Microbiome and Nitrogen in the Nodule Density ANOVA.",
+  col.names = c("Microbiome", "Nitrogen", "Estimate", "SE", "df", "t", "P")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+
+
+\newpage
+## Fixing Nodule Density M $\times$ N Model
+
+```{r Marginal Means: Fixing Nodule Density by Microbiome, echo = FALSE}
+kable(
+  tidy(fixing.nodule.density.M.emmeans$emmeans),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Estimated marginal means of the main effect of Microbiome in the Fixing Nodule Density ANOVA.",
+  col.names = c("Microbiome", "Estimate", "SE", "df", "t", "P")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{4pt}
+
+```{r Marginal Means: Fixing Nodule Density by Nitrogen, echo = FALSE}
+kable(
+  tidy(fixing.nodule.density.N.emmeans$emmeans),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Estimated marginal means of the main effect of Nitrogen in the Fixing Nodule Density ANOVA.",
+  col.names = c("Nitrogen", "Estimate", "SE", "df", "t", "P")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{4pt}
+
+```{r Marginal Means: Fixing Nodule Density by Microbiome and Nitrogen, echo = FALSE}
+kable(
+  tidy(fixing.nodule.density.MxN.emmeans$emmeans),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Estimated marginal means of the interaction between Microbiome and Nitrogen in the Fixing Nodule Density ANOVA.",
+  col.names = c("Microbiome", "Nitrogen", "Estimate", "SE", "df", "t", "P")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+
+
+
+
+\newpage
+# Export Data
+
+```{r Export LMMs, echo = TRUE}
+## Export the aboveground biomass LMM
+write_rds(
+  aboveground.biomass.MN.LMM,
+  file = "data/aboveground_biomass_MN_LMM.rds"
+)
+
+## Export the belowground biomass LMM
+write_rds(
+  belowground.biomass.MN.LMM,
+  file = "data/belowground_biomass_MN_LMM.rds"
+)
+
+## Export the nodule density LMM
+write_rds(
+  nodule.density.MN.LMM,
+  file = "data/nodule_density_MN_LMM.rds"
+)
+
+## Export the fixing nodule density LMM
+write_rds(
+  fixing.nodule.density.MN.LMM,
+  file = "data/fixing_nodule_density_MN_LMM.rds"
+)
+```
+
+
+
+
+
+
+
+
+
+
+```{r Save the Workspace, include = FALSE}
+save.image("data_analysis/2-microbiome_x_nitrogen-analyses/M_x_N-analyses-workspace.RData")
+```
+
+
+
+
+
+
+
+
+
+
+\newpage
+# R Session Information
+
+```{r R Packages, echo = FALSE}
+df_session_packages <- devtools::session_info()$packages %>%
+  as.data.frame(.) %>%
+  filter(attached == TRUE) %>%
+  dplyr::select(loadedversion, date) %>%
+  rownames_to_column()
+
+colnames(df_session_packages) <- c("Package", "Loaded Version", "Date")
+
+kable(
+  df_session_packages,
+  booktabs = TRUE,
+  caption = "Packages required for data management and analysis."
+) %>%
+  kable_styling(
+    full_width = FALSE,
+    latex_options = c("HOLD_position", "striped")
+  )
+```

@@ -1,0 +1,1352 @@
+---
+title: "TRhizo-localAdaptation"
+subtitle: "Local Adaptation by Urbanization"
+author: "David Murray-Stoker"
+output:
+  pdf_document:
+    toc: true
+    toc_depth: 4
+    fig_caption: yes
+    latex_engine: xelatex
+always_allow_html: true
+---
+
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+options(knitr.graphics.error = FALSE)
+knitr::opts_chunk$set(results = "hold", fig.pos = "H", fig.align = "center", out.width = "92.5%")
+kableExtra::usepackage_latex("float")
+```
+
+```{r Load Packages for R Markdown, include = FALSE}
+library(kableExtra)
+library(knitr)
+```
+
+
+
+
+
+\newpage
+# Load Packages & Data
+
+```{r Load Packages & Data, echo = TRUE, results = "hide"}
+## Load the tidyverse
+library(tidyverse)
+
+## Load packages for data analysis
+library(broom)
+library(easystats)
+
+## Read in data
+# Urbanization data
+urbanization.data <- read_rds(file = "data/full_urbanization_data.rds")
+# Local adaptation indices
+load("data_analysis/4-local_adaptation_indices/local_adaptation_indices.RData")
+
+## Set function for scaling variables
+center_and_scale <- function(x) {
+  (x - mean(x, na.rm = TRUE)) / sd(x, na.rm = TRUE)
+}
+```
+
+
+
+
+
+\newpage
+# Data Management
+
+```{r Data Management, echo = TRUE}
+## Aboveground biomass
+# Global index
+aboveground.biomass.LA.global.combined.data <- aboveground.biomass.LA.global.data %>%
+  left_join(urbanization.data, by = "Population") %>%
+  drop_na() %>%
+  type_convert(col_types = c("ffnnnnnfnin")) %>%
+  mutate(
+    Distance_Scaled = center_and_scale(Distance),
+    Human_Influence_Index_Scaled = center_and_scale(Human_Influence_Index),
+    Mean_ISC_Scaled = center_and_scale(Mean_ISC)
+  )
+# Rural index
+aboveground.biomass.LA.rural.combined.data <- aboveground.biomass.LA.rural.data %>%
+  left_join(urbanization.data, by = "Population") %>%
+  drop_na() %>%
+  type_convert(col_types = c("ffnnnnnfnin")) %>%
+  mutate(
+    Distance_Scaled = center_and_scale(Distance),
+    Human_Influence_Index_Scaled = center_and_scale(Human_Influence_Index),
+    Mean_ISC_Scaled = center_and_scale(Mean_ISC)
+  )
+# Urban index
+aboveground.biomass.LA.urban.combined.data <- aboveground.biomass.LA.urban.data %>%
+  left_join(urbanization.data, by = "Population") %>%
+  drop_na() %>%
+  type_convert(col_types = c("ffnnnnnfnin")) %>%
+  mutate(
+    Distance_Scaled = center_and_scale(Distance),
+    Human_Influence_Index_Scaled = center_and_scale(Human_Influence_Index),
+    Mean_ISC_Scaled = center_and_scale(Mean_ISC)
+  )
+
+## Belowground biomass
+# Global index
+belowground.biomass.LA.global.combined.data <- belowground.biomass.LA.global.data %>%
+  left_join(urbanization.data, by = "Population") %>%
+  drop_na() %>%
+  type_convert(col_types = c("ffnnnnnfnin")) %>%
+  mutate(
+    Distance_Scaled = center_and_scale(Distance),
+    Human_Influence_Index_Scaled = center_and_scale(Human_Influence_Index),
+    Mean_ISC_Scaled = center_and_scale(Mean_ISC)
+  )
+# Rural index
+belowground.biomass.LA.rural.combined.data <- belowground.biomass.LA.rural.data %>%
+  left_join(urbanization.data, by = "Population") %>%
+  drop_na() %>%
+  type_convert(col_types = c("ffnnnnnfnin")) %>%
+  mutate(
+    Distance_Scaled = center_and_scale(Distance),
+    Human_Influence_Index_Scaled = center_and_scale(Human_Influence_Index),
+    Mean_ISC_Scaled = center_and_scale(Mean_ISC)
+  )
+# Urban index
+belowground.biomass.LA.urban.combined.data <- belowground.biomass.LA.urban.data %>%
+  left_join(urbanization.data, by = "Population") %>%
+  drop_na() %>%
+  type_convert(col_types = c("ffnnnnnfnin")) %>%
+  mutate(
+    Distance_Scaled = center_and_scale(Distance),
+    Human_Influence_Index_Scaled = center_and_scale(Human_Influence_Index),
+    Mean_ISC_Scaled = center_and_scale(Mean_ISC)
+  )
+
+## Nodule density
+# Global index
+nodule.density.LA.global.combined.data <- nodule.density.LA.global.data %>%
+  left_join(urbanization.data, by = "Population") %>%
+  drop_na() %>%
+  type_convert(col_types = c("ffnnnnnfnin")) %>%
+  mutate(
+    Distance_Scaled = center_and_scale(Distance),
+    Human_Influence_Index_Scaled = center_and_scale(Human_Influence_Index),
+    Mean_ISC_Scaled = center_and_scale(Mean_ISC)
+  )
+# Rural index
+nodule.density.LA.rural.combined.data <- nodule.density.LA.rural.data %>%
+  left_join(urbanization.data, by = "Population") %>%
+  drop_na() %>%
+  type_convert(col_types = c("ffnnnnnfnin")) %>%
+  mutate(
+    Distance_Scaled = center_and_scale(Distance),
+    Human_Influence_Index_Scaled = center_and_scale(Human_Influence_Index),
+    Mean_ISC_Scaled = center_and_scale(Mean_ISC)
+  )
+# Urban index
+nodule.density.LA.urban.combined.data <- nodule.density.LA.urban.data %>%
+  left_join(urbanization.data, by = "Population") %>%
+  drop_na() %>%
+  type_convert(col_types = c("ffnnnnnfnin")) %>%
+  mutate(
+    Distance_Scaled = center_and_scale(Distance),
+    Human_Influence_Index_Scaled = center_and_scale(Human_Influence_Index),
+    Mean_ISC_Scaled = center_and_scale(Mean_ISC)
+  )
+
+## Fixing nodule density
+fixing.nodule.density.LA.global.combined.data <- fixing.nodule.density.LA.global.data %>%
+  left_join(urbanization.data, by = "Population") %>%
+  drop_na() %>%
+  type_convert(col_types = c("ffnnnnnfnin")) %>%
+  mutate(
+    Distance_Scaled = center_and_scale(Distance),
+    Human_Influence_Index_Scaled = center_and_scale(Human_Influence_Index),
+    Mean_ISC_Scaled = center_and_scale(Mean_ISC)
+  )
+# Rural index
+fixing.nodule.density.LA.rural.combined.data <- fixing.nodule.density.LA.rural.data %>%
+  left_join(urbanization.data, by = "Population") %>%
+  drop_na() %>%
+  type_convert(col_types = c("ffnnnnnfnin")) %>%
+  mutate(
+    Distance_Scaled = center_and_scale(Distance),
+    Human_Influence_Index_Scaled = center_and_scale(Human_Influence_Index),
+    Mean_ISC_Scaled = center_and_scale(Mean_ISC)
+  )
+# Urban index
+fixing.nodule.density.LA.urban.combined.data <- fixing.nodule.density.LA.urban.data %>%
+  left_join(urbanization.data, by = "Population") %>%
+  drop_na() %>%
+  type_convert(col_types = c("ffnnnnnfnin")) %>%
+  mutate(
+    Distance_Scaled = center_and_scale(Distance),
+    Human_Influence_Index_Scaled = center_and_scale(Human_Influence_Index),
+    Mean_ISC_Scaled = center_and_scale(Mean_ISC)
+  )
+```
+
+
+```{r Save Final Workspace, include = FALSE}
+save.image("data_analysis/6-local_adaptation_by_urbanization/local_adaptation_by_urbanization_data.RData")
+```
+
+
+
+
+
+\newpage
+# Aboveground Biomass Regressions
+
+## Global Index
+
+### Fit the Regressions
+
+```{r Fit the Regressions: Aboveground Biomass Global Index, echo = TRUE}
+## Distance
+aboveground.biomass.by.distance.global.LM <- lm(
+  AG_Biomass_LA_Global ~ Distance_Scaled,
+  data = aboveground.biomass.LA.global.combined.data
+)
+
+## Human influence index
+aboveground.biomass.by.HII.global.LM <- lm(
+  AG_Biomass_LA_Global ~ Human_Influence_Index_Scaled,
+  data = aboveground.biomass.LA.global.combined.data
+)
+
+## Impervious surface cover
+aboveground.biomass.by.ISC.global.LM <- lm(
+  AG_Biomass_LA_Global ~ Mean_ISC_Scaled,
+  data = aboveground.biomass.LA.global.combined.data
+)
+```
+
+\vspace{10pt}
+
+### Check Model Assumptions
+
+```{r performance Diagnostics: Aboveground Biomass Global Index, echo = TRUE, eval = FALSE}
+## Distance
+check_model(aboveground.biomass.by.distance.global.LM)
+# Linear assumption met
+# Homogeneity of variance
+# Residuals approximately follow a normal distribution
+
+## Human influence index
+check_model(aboveground.biomass.by.HII.global.LM)
+# Linear assumption met
+# Homogeneity of variance
+# Residuals approximately follow a normal distribution
+
+## Impervious surface cover
+check_model(aboveground.biomass.by.ISC.global.LM)
+# Linear assumption met
+# Homogeneity of variance
+# Residuals approximately follow a normal distribution
+```
+
+\newpage
+
+### Model Summaries
+
+```{r Model Summary: Aboveground Biomass Global Index (Distance), echo = FALSE}
+kable(
+  tidy(summary(aboveground.biomass.by.distance.global.LM)),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Summary of the aboveground biomass global local adaptation index by distance model. Adjusted R-squared = ~0.",
+  col.names = c("Term", "Estimate", "SE", "t", "P-value")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{10pt}
+
+```{r Model Summary: Aboveground Biomass Global Index (HII), echo = FALSE}
+kable(
+  tidy(summary(aboveground.biomass.by.HII.global.LM)),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Summary of the aboveground biomass global local adaptation index by HII model. Adjusted R-squared = 0.031.",
+  col.names = c("Term", "Estimate", "SE", "t", "P-value")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{10pt}
+
+```{r Model Summary: Aboveground Biomass Global Index (ISC), echo = FALSE}
+kable(
+  tidy(summary(aboveground.biomass.by.ISC.global.LM)),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Summary of the aboveground biomass global local adaptation index by ISC model. Adjusted R-squared = ~0.",
+  col.names = c("Term", "Estimate", "SE", "t", "P-value")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+
+
+\newpage
+## Rural Index
+
+### Fit the Regressions
+
+```{r Fit the Regressions: Aboveground Biomass Rural Index, echo = TRUE}
+## Distance
+aboveground.biomass.by.distance.rural.LM <- lm(
+  AG_Biomass_LA_Rural ~ Distance_Scaled,
+  data = aboveground.biomass.LA.rural.combined.data
+)
+
+## Human influence index
+aboveground.biomass.by.HII.rural.LM <- lm(
+  AG_Biomass_LA_Rural ~ Human_Influence_Index_Scaled,
+  data = aboveground.biomass.LA.rural.combined.data
+)
+
+## Impervious surface cover
+aboveground.biomass.by.ISC.rural.LM <- lm(
+  AG_Biomass_LA_Rural ~ Mean_ISC_Scaled,
+  data = aboveground.biomass.LA.rural.combined.data
+)
+```
+
+\vspace{10pt}
+
+### Check Model Assumptions
+
+```{r performance Diagnostics: Aboveground Biomass Rural Index, echo = TRUE, eval = FALSE}
+## Distance
+check_model(aboveground.biomass.by.distance.rural.LM)
+# Linear assumption met
+# Homogeneity of variance
+# Residuals approximately follow a normal distribution
+
+## Human influence index
+check_model(aboveground.biomass.by.HII.rural.LM)
+# Linear assumption met
+# Homogeneity of variance
+# Residuals approximately follow a normal distribution
+
+## Impervious surface cover
+check_model(aboveground.biomass.by.ISC.rural.LM)
+# Linear assumption met
+# Homogeneity of variance
+# Residuals approximately follow a normal distribution
+```
+
+\newpage
+
+### Model Summaries
+
+```{r Model Summary: Aboveground Biomass Rural Index (Distance), echo = FALSE}
+kable(
+  tidy(summary(aboveground.biomass.by.distance.rural.LM)),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Summary of the aboveground biomass rural local adaptation index by distance model. Adjusted R-squared = ~0.",
+  col.names = c("Term", "Estimate", "SE", "t", "P-value")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{10pt}
+
+```{r Model Summary: Aboveground Biomass Rural Index (HII), echo = FALSE}
+kable(
+  tidy(summary(aboveground.biomass.by.HII.rural.LM)),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Summary of the aboveground biomass rural local adaptation index by HII model. Adjusted R-squared = 0.012.",
+  col.names = c("Term", "Estimate", "SE", "t", "P-value")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{10pt}
+
+```{r Model Summary: Aboveground Biomass Rural Index (ISC), echo = FALSE}
+kable(
+  tidy(summary(aboveground.biomass.by.ISC.rural.LM)),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Summary of the aboveground biomass rural local adaptation index by ISC model. Adjusted R-squared = ~0.",
+  col.names = c("Term", "Estimate", "SE", "t", "P-value")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+
+
+\newpage
+## Urban Index
+
+### Fit the Regressions
+
+```{r Fit the Regressions: Aboveground Biomass Urban Index, echo = TRUE}
+## Distance
+aboveground.biomass.by.distance.urban.LM <- lm(
+  AG_Biomass_LA_Urban ~ Distance_Scaled,
+  data = aboveground.biomass.LA.urban.combined.data
+)
+
+## Human influence index
+aboveground.biomass.by.HII.urban.LM <- lm(
+  AG_Biomass_LA_Urban ~ Human_Influence_Index_Scaled,
+  data = aboveground.biomass.LA.urban.combined.data
+)
+
+## Impervious surface cover
+aboveground.biomass.by.ISC.urban.LM <- lm(
+  AG_Biomass_LA_Urban ~ Mean_ISC_Scaled,
+  data = aboveground.biomass.LA.urban.combined.data
+)
+```
+
+\vspace{10pt}
+
+### Check Model Assumptions
+
+```{r performance Diagnostics: Aboveground Biomass Urban Index, echo = TRUE, eval = FALSE}
+## Distance
+check_model(aboveground.biomass.by.distance.urban.LM)
+# Linear assumption met
+# Homogeneity of variance
+# Residuals approximately follow a normal distribution
+
+## Human influence index
+check_model(aboveground.biomass.by.HII.urban.LM)
+# Linear assumption met
+# Slight (+ non-concerning) heterogeneity of variance
+# Residuals approximately follow a normal distribution
+
+## Impervious surface cover
+check_model(aboveground.biomass.by.ISC.urban.LM)
+# Linear assumption met
+# Homogeneity of variance
+# Residuals approximately follow a normal distribution
+```
+
+\newpage
+
+### Model Summaries
+
+```{r Model Summary: Aboveground Biomass Urban Index (Distance), echo = FALSE}
+kable(
+  tidy(summary(aboveground.biomass.by.distance.urban.LM)),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Summary of the aboveground biomass urban local adaptation index by distance model. Adjusted R-squared = ~0.",
+  col.names = c("Term", "Estimate", "SE", "t", "P-value")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{10pt}
+
+```{r Model Summary: Aboveground Biomass Urban Index (HII), echo = FALSE}
+kable(
+  tidy(summary(aboveground.biomass.by.HII.urban.LM)),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Summary of the aboveground biomass urban local adaptation index by HII model. Adjusted R-squared = 0.022.",
+  col.names = c("Term", "Estimate", "SE", "t", "P-value")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{10pt}
+
+```{r Model Summary: Aboveground Biomass Urban Index (ISC), echo = FALSE}
+kable(
+  tidy(summary(aboveground.biomass.by.ISC.urban.LM)),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Summary of the aboveground biomass urban local adaptation index by ISC model. Adjusted R-squared = ~0.",
+  col.names = c("Term", "Estimate", "SE", "t", "P-value")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+
+
+
+
+\newpage
+# Belowground Biomass Regressions
+
+## Global Index
+
+### Fit the Regressions
+
+```{r Fit the Regressions: Belowground Biomass Global Index, echo = TRUE}
+## Distance
+belowground.biomass.by.distance.global.LM <- lm(
+  BG_Biomass_LA_Global ~ Distance_Scaled,
+  data = belowground.biomass.LA.global.combined.data
+)
+
+## Human influence index
+belowground.biomass.by.HII.global.LM <- lm(
+  BG_Biomass_LA_Global ~ Human_Influence_Index_Scaled,
+  data = belowground.biomass.LA.global.combined.data
+)
+
+## Impervious surface cover
+belowground.biomass.by.ISC.global.LM <- lm(
+  BG_Biomass_LA_Global ~ Mean_ISC_Scaled,
+  data = belowground.biomass.LA.global.combined.data
+)
+```
+
+\vspace{10pt}
+
+### Check Model Assumptions
+
+```{r performance Diagnostics: Belowground Biomass Global Index, echo = TRUE, eval = FALSE}
+## Distance
+check_model(belowground.biomass.by.distance.global.LM)
+# Linear assumption met
+# Homogeneity of variance
+# Residuals approximately follow a normal distribution
+
+## Human influence index
+check_model(belowground.biomass.by.HII.global.LM)
+# Linear assumption met
+# Homogeneity of variance
+# Residuals approximately follow a normal distribution
+
+## Impervious surface cover
+check_model(belowground.biomass.by.ISC.global.LM)
+# Linear assumption met
+# Homogeneity of variance
+# Residuals approximately follow a normal distribution
+```
+
+\newpage
+
+### Model Summaries
+
+```{r Model Summary: Belowground Biomass Global Index (Distance), echo = FALSE}
+kable(
+  tidy(summary(belowground.biomass.by.distance.global.LM)),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Summary of the belowground biomass global local adaptation index by distance model. Adjusted R-squared = ~0.",
+  col.names = c("Term", "Estimate", "SE", "t", "P-value")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{10pt}
+
+```{r Model Summary: Belowground Biomass Global Index (HII), echo = FALSE}
+kable(
+  tidy(summary(belowground.biomass.by.HII.global.LM)),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Summary of the belowground biomass global local adaptation index by HII model. Adjusted R-squared = 0.012.",
+  col.names = c("Term", "Estimate", "SE", "t", "P-value")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{10pt}
+
+```{r Model Summary: Belowground Biomass Global Index (ISC), echo = FALSE}
+kable(
+  tidy(summary(belowground.biomass.by.ISC.global.LM)),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Summary of the belowground biomass global local adaptation index by ISC model. Adjusted R-squared = ~0.",
+  col.names = c("Term", "Estimate", "SE", "t", "P-value")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+
+
+\newpage
+## Rural Index
+
+### Fit the Regressions
+
+```{r Fit the Regressions: Belowground Biomass Rural Index, echo = TRUE}
+## Distance
+belowground.biomass.by.distance.rural.LM <- lm(
+  BG_Biomass_LA_Rural ~ Distance_Scaled,
+  data = belowground.biomass.LA.rural.combined.data
+)
+
+## Human influence index
+belowground.biomass.by.HII.rural.LM <- lm(
+  BG_Biomass_LA_Rural ~ Human_Influence_Index_Scaled,
+  data = belowground.biomass.LA.rural.combined.data
+)
+
+## Impervious surface cover
+belowground.biomass.by.ISC.rural.LM <- lm(
+  BG_Biomass_LA_Rural ~ Mean_ISC_Scaled,
+  data = belowground.biomass.LA.rural.combined.data
+)
+```
+
+\vspace{10pt}
+
+### Check Model Assumptions
+
+```{r performance Diagnostics: Belowground Biomass Rural Index, echo = TRUE, eval = FALSE}
+## Distance
+check_model(belowground.biomass.by.distance.rural.LM)
+# Linear assumption met
+# Homogeneity of variance
+# Residuals approximately follow a normal distribution
+
+## Human influence index
+check_model(belowground.biomass.by.HII.rural.LM)
+# Linear assumption met
+# Homogeneity of variance
+# Residuals approximately follow a normal distribution
+
+## Impervious surface cover
+check_model(belowground.biomass.by.ISC.rural.LM)
+# Linear assumption met
+# Homogeneity of variance
+# Residuals approximately follow a normal distribution
+```
+
+\newpage
+
+### Model Summaries
+
+```{r Model Summary: Belowground Biomass Rural Index (Distance), echo = FALSE}
+kable(
+  tidy(summary(belowground.biomass.by.distance.rural.LM)),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Summary of the belowground biomass rural local adaptation index by distance model. Adjusted R-squared = ~0.",
+  col.names = c("Term", "Estimate", "SE", "t", "P-value")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{10pt}
+
+```{r Model Summary: Belowground Biomass Rural Index (HII), echo = FALSE}
+kable(
+  tidy(summary(belowground.biomass.by.HII.rural.LM)),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Summary of the belowground biomass rural local adaptation index by HII model. Adjusted R-squared = 0.024.",
+  col.names = c("Term", "Estimate", "SE", "t", "P-value")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{10pt}
+
+```{r Model Summary: Belowground Biomass Rural Index (ISC), echo = FALSE}
+kable(
+  tidy(summary(belowground.biomass.by.ISC.rural.LM)),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Summary of the belowground biomass rural local adaptation index by ISC model. Adjusted R-squared = ~0.",
+  col.names = c("Term", "Estimate", "SE", "t", "P-value")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+
+
+\newpage
+## Urban Index
+
+### Fit the Regressions
+
+```{r Fit the Regressions: Belowground Biomass Urban Index, echo = TRUE}
+## Distance
+belowground.biomass.by.distance.urban.LM <- lm(
+  BG_Biomass_LA_Urban ~ Distance_Scaled,
+  data = belowground.biomass.LA.urban.combined.data
+)
+
+## Human influence index
+belowground.biomass.by.HII.urban.LM <- lm(
+  BG_Biomass_LA_Urban ~ Human_Influence_Index_Scaled,
+  data = belowground.biomass.LA.urban.combined.data
+)
+
+## Impervious surface cover
+belowground.biomass.by.ISC.urban.LM <- lm(
+  BG_Biomass_LA_Urban ~ Mean_ISC_Scaled,
+  data = belowground.biomass.LA.urban.combined.data
+)
+```
+
+\vspace{10pt}
+
+### Check Model Assumptions
+
+```{r performance Diagnostics: Belowground Biomass Urban Index, echo = TRUE, eval = FALSE}
+## Distance
+check_model(belowground.biomass.by.distance.urban.LM)
+# Linear assumption met
+# Homogeneity of variance
+# Residuals approximately follow a normal distribution
+
+## Human influence index
+check_model(belowground.biomass.by.HII.urban.LM)
+# Linear assumption met
+# Slight (+ non-concerning) heterogeneity of variance
+# Residuals approximately follow a normal distribution
+
+## Impervious surface cover
+check_model(belowground.biomass.by.ISC.urban.LM)
+# Linear assumption met
+# Homogeneity of variance
+# Residuals approximately follow a normal distribution
+```
+
+\newpage
+
+### Model Summaries
+
+```{r Model Summary: Belowground Biomass Urban Index (Distance), echo = FALSE}
+kable(
+  tidy(summary(belowground.biomass.by.distance.urban.LM)),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Summary of the belowground biomass urban local adaptation index by distance model. Adjusted R-squared = 0.001.",
+  col.names = c("Term", "Estimate", "SE", "t", "P-value")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{10pt}
+
+```{r Model Summary: Belowground Biomass Urban Index (HII), echo = FALSE}
+kable(
+  tidy(summary(belowground.biomass.by.HII.urban.LM)),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Summary of the belowground biomass urban local adaptation index by HII model. Adjusted R-squared = ~0.",
+  col.names = c("Term", "Estimate", "SE", "t", "P-value")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{10pt}
+
+```{r Model Summary: Belowground Biomass Urban Index (ISC), echo = FALSE}
+kable(
+  tidy(summary(belowground.biomass.by.ISC.urban.LM)),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Summary of the belowground biomass urban local adaptation index by ISC model. Adjusted R-squared = 0.022.",
+  col.names = c("Term", "Estimate", "SE", "t", "P-value")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+
+
+
+
+\newpage
+# Nodule Density Regressions
+
+## Global Index
+
+### Fit the Regressions
+
+```{r Fit the Regressions: Nodule Density Global Index, echo = TRUE}
+## Distance
+nodule.density.by.distance.global.LM <- lm(
+  Nod_Density_LA_Global ~ Distance_Scaled,
+  data = nodule.density.LA.global.combined.data
+)
+
+## Human influence index
+nodule.density.by.HII.global.LM <- lm(
+  Nod_Density_LA_Global ~ Human_Influence_Index_Scaled,
+  data = nodule.density.LA.global.combined.data
+)
+
+## Impervious surface cover
+nodule.density.by.ISC.global.LM <- lm(
+  Nod_Density_LA_Global ~ Mean_ISC_Scaled,
+  data = nodule.density.LA.global.combined.data
+)
+```
+
+\vspace{10pt}
+
+### Check Model Assumptions
+
+```{r performance Diagnostics: Nodule Density Global Index, echo = TRUE, eval = FALSE}
+## Distance
+check_model(nodule.density.by.distance.global.LM)
+# Linear assumption met
+# Homogeneity of variance
+# Residuals approximately follow a normal distribution
+
+## Human influence index
+check_model(nodule.density.by.HII.global.LM)
+# Linear assumption met
+# Homogeneity of variance
+# Residuals approximately follow a normal distribution
+
+## Impervious surface cover
+check_model(nodule.density.by.ISC.global.LM)
+# Linear assumption met
+# Slight (+ non-concerning) heterogeneity of variance
+# Residuals approximately follow a normal distribution
+```
+
+\newpage
+
+### Model Summaries
+
+```{r Model Summary: Nodule Density Global Index (Distance), echo = FALSE}
+kable(
+  tidy(summary(nodule.density.by.distance.global.LM)),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Summary of the nodule density global local adaptation index by distance model. Adjusted R-squared = ~0.",
+  col.names = c("Term", "Estimate", "SE", "t", "P-value")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{10pt}
+
+```{r Model Summary: Nodule Density Global Index (HII), echo = FALSE}
+kable(
+  tidy(summary(nodule.density.by.HII.global.LM)),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Summary of the nodule density global local adaptation index by HII model. Adjusted R-squared = ~0.",
+  col.names = c("Term", "Estimate", "SE", "t", "P-value")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{10pt}
+
+```{r Model Summary: Nodule Density Global Index (ISC), echo = FALSE}
+kable(
+  tidy(summary(nodule.density.by.ISC.global.LM)),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Summary of the nodule density global local adaptation index by ISC model. Adjusted R-squared = ~0.",
+  col.names = c("Term", "Estimate", "SE", "t", "P-value")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+
+
+\newpage
+## Rural Index
+
+### Fit the Regressions
+
+```{r Fit the Regressions: Nodule Density Rural Index, echo = TRUE}
+## Distance
+nodule.density.by.distance.rural.LM <- lm(
+  Nod_Density_LA_Rural ~ Distance_Scaled,
+  data = nodule.density.LA.rural.combined.data
+)
+
+## Human influence index
+nodule.density.by.HII.rural.LM <- lm(
+  Nod_Density_LA_Rural ~ Human_Influence_Index_Scaled,
+  data = nodule.density.LA.rural.combined.data
+)
+
+## Impervious surface cover
+nodule.density.by.ISC.rural.LM <- lm(
+  Nod_Density_LA_Rural ~ Mean_ISC_Scaled,
+  data = nodule.density.LA.rural.combined.data
+)
+```
+
+\vspace{10pt}
+
+### Check Model Assumptions
+
+```{r performance Diagnostics: Nodule Density Rural Index, echo = TRUE, eval = FALSE}
+## Distance
+check_model(nodule.density.by.distance.rural.LM)
+# Linear assumption met
+# Homogeneity of variance
+# Residuals approximately follow a normal distribution
+
+## Human influence index
+check_model(nodule.density.by.HII.rural.LM)
+# Linear assumption met
+# Homogeneity of variance
+# Residuals approximately follow a normal distribution
+
+## Impervious surface cover
+check_model(nodule.density.by.ISC.rural.LM)
+# Linear assumption met
+# Homogeneity of variance
+# Residuals approximately follow a normal distribution
+```
+
+\newpage
+
+### Model Summaries
+
+```{r Model Summary: Nodule Density Rural Index (Distance), echo = FALSE}
+kable(
+  tidy(summary(nodule.density.by.distance.rural.LM)),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Summary of the nodule density rural local adaptation index by distance model. Adjusted R-squared = 0.006.",
+  col.names = c("Term", "Estimate", "SE", "t", "P-value")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{10pt}
+
+```{r Model Summary: Nodule Density Rural Index (HII), echo = FALSE}
+kable(
+  tidy(summary(nodule.density.by.HII.rural.LM)),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Summary of the nodule density rural local adaptation index by HII model. Adjusted R-squared = 0.014.",
+  col.names = c("Term", "Estimate", "SE", "t", "P-value")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{10pt}
+
+```{r Model Summary: Nodule Density Rural Index (ISC), echo = FALSE}
+kable(
+  tidy(summary(nodule.density.by.ISC.rural.LM)),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Summary of the nodule density rural local adaptation index by ISC model. Adjusted R-squared = ~0.",
+  col.names = c("Term", "Estimate", "SE", "t", "P-value")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+
+
+\newpage
+## Urban Index
+
+### Fit the Regressions
+
+```{r Fit the Regressions: Nodule Density Urban Index, echo = TRUE}
+## Distance
+nodule.density.by.distance.urban.LM <- lm(
+  Nod_Density_LA_Urban ~ Distance_Scaled,
+  data = nodule.density.LA.urban.combined.data
+)
+
+## Human influence index
+nodule.density.by.HII.urban.LM <- lm(
+  Nod_Density_LA_Urban ~ Human_Influence_Index_Scaled,
+  data = nodule.density.LA.urban.combined.data
+)
+
+## Impervious surface cover
+nodule.density.by.ISC.urban.LM <- lm(
+  Nod_Density_LA_Urban ~ Mean_ISC_Scaled,
+  data = nodule.density.LA.urban.combined.data
+)
+```
+
+\vspace{10pt}
+
+### Check Model Assumptions
+
+```{r performance Diagnostics: Nodule Density Urban Index, echo = TRUE, eval = FALSE}
+## Distance
+check_model(nodule.density.by.distance.urban.LM)
+# Linear assumption met
+# Homogeneity of variance
+# Residuals approximately follow a normal distribution
+
+## Human influence index
+check_model(nodule.density.by.HII.urban.LM)
+# Linear assumption met
+# Slight (+ non-concerning) heterogeneity of variance
+# Residuals approximately follow a normal distribution
+
+## Impervious surface cover
+check_model(nodule.density.by.ISC.urban.LM)
+# Linear assumption met
+# Homogeneity of variance
+# Residuals approximately follow a normal distribution
+```
+
+\newpage
+
+### Model Summaries
+
+```{r Model Summary: Nodule Density Urban Index (Distance), echo = FALSE}
+kable(
+  tidy(summary(nodule.density.by.distance.urban.LM)),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Summary of the nodule density urban local adaptation index by distance model. Adjusted R-squared = ~0.",
+  col.names = c("Term", "Estimate", "SE", "t", "P-value")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{10pt}
+
+```{r Model Summary: Nodule Density Urban Index (HII), echo = FALSE}
+kable(
+  tidy(summary(nodule.density.by.HII.urban.LM)),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Summary of the nodule density urban local adaptation index by HII model. Adjusted R-squared = ~0.",
+  col.names = c("Term", "Estimate", "SE", "t", "P-value")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{10pt}
+
+```{r Model Summary: Nodule Density Urban Index (ISC), echo = FALSE}
+kable(
+  tidy(summary(nodule.density.by.ISC.urban.LM)),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Summary of the nodule density urban local adaptation index by ISC model. Adjusted R-squared = ~0.",
+  col.names = c("Term", "Estimate", "SE", "t", "P-value")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+
+
+
+
+\newpage
+# Fixing Nodule Density Regressions
+
+## Global Index
+
+### Fit the Regressions
+
+```{r Fit the Regressions: Fixing Nodule Density Global Index, echo = TRUE}
+## Distance
+fixing.nodule.density.by.distance.global.LM <- lm(
+  Fix_Nod_Density_LA_Global ~ Distance_Scaled,
+  data = fixing.nodule.density.LA.global.combined.data
+)
+
+## Human influence index
+fixing.nodule.density.by.HII.global.LM <- lm(
+  Fix_Nod_Density_LA_Global ~ Human_Influence_Index_Scaled,
+  data = fixing.nodule.density.LA.global.combined.data
+)
+
+## Impervious surface cover
+fixing.nodule.density.by.ISC.global.LM <- lm(
+  Fix_Nod_Density_LA_Global ~ Mean_ISC_Scaled,
+  data = fixing.nodule.density.LA.global.combined.data
+)
+```
+
+\vspace{10pt}
+
+### Check Model Assumptions
+
+```{r performance Diagnostics: Fixing Nodule Density Global Index, echo = TRUE, eval = FALSE}
+## Distance
+check_model(fixing.nodule.density.by.distance.global.LM)
+# Linear assumption met
+# Homogeneity of variance
+# Residuals approximately follow a normal distribution
+
+## Human influence index
+check_model(fixing.nodule.density.by.HII.global.LM)
+# Linear assumption met
+# Homogeneity of variance
+# Residuals approximately follow a normal distribution
+
+## Impervious surface cover
+check_model(fixing.nodule.density.by.ISC.global.LM)
+# Linear assumption met
+# Slight (+ non-concerning) heterogeneity of variance
+# Residuals approximately follow a normal distribution
+```
+
+\newpage
+
+### Model Summaries
+
+```{r Model Summary: Fixing Nodule Density Global Index (Distance), echo = FALSE}
+kable(
+  tidy(summary(fixing.nodule.density.by.distance.global.LM)),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Summary of the fixing nodule density global local adaptation index by distance model. Adjusted R-squared = ~0.",
+  col.names = c("Term", "Estimate", "SE", "t", "P-value")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{10pt}
+
+```{r Model Summary: Fixing Nodule Density Global Index (HII), echo = FALSE}
+kable(
+  tidy(summary(fixing.nodule.density.by.HII.global.LM)),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Summary of the fixing nodule density global local adaptation index by HII model. Adjusted R-squared = ~0.",
+  col.names = c("Term", "Estimate", "SE", "t", "P-value")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{10pt}
+
+```{r Model Summary: Fixing Nodule Density Global Index (ISC), echo = FALSE}
+kable(
+  tidy(summary(fixing.nodule.density.by.ISC.global.LM)),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Summary of the fixing nodule density global local adaptation index by ISC model. Adjusted R-squared = ~0.",
+  col.names = c("Term", "Estimate", "SE", "t", "P-value")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+
+
+\newpage
+## Rural Index
+
+### Fit the Regressions
+
+```{r Fit the Regressions: Fixing Nodule Density Rural Index, echo = TRUE}
+## Distance
+fixing.nodule.density.by.distance.rural.LM <- lm(
+  Fix_Nod_Density_LA_Rural ~ Distance_Scaled,
+  data = fixing.nodule.density.LA.rural.combined.data
+)
+
+## Human influence index
+fixing.nodule.density.by.HII.rural.LM <- lm(
+  Fix_Nod_Density_LA_Rural ~ Human_Influence_Index_Scaled,
+  data = fixing.nodule.density.LA.rural.combined.data
+)
+
+## Impervious surface cover
+fixing.nodule.density.by.ISC.rural.LM <- lm(
+  Fix_Nod_Density_LA_Rural ~ Mean_ISC_Scaled,
+  data = fixing.nodule.density.LA.rural.combined.data
+)
+```
+
+\vspace{10pt}
+
+### Check Model Assumptions
+
+```{r performance Diagnostics: Fixing Nodule Density Rural Index, echo = TRUE, eval = FALSE}
+## Distance
+check_model(fixing.nodule.density.by.distance.rural.LM)
+# Linear assumption met
+# Homogeneity of variance
+# Residuals approximately follow a normal distribution
+
+## Human influence index
+check_model(fixing.nodule.density.by.HII.rural.LM)
+# Linear assumption met
+# Homogeneity of variance
+# Residuals approximately follow a normal distribution
+
+## Impervious surface cover
+check_model(fixing.nodule.density.by.ISC.rural.LM)
+# Linear assumption met
+# Homogeneity of variance
+# Residuals approximately follow a normal distribution
+```
+
+\newpage
+
+### Model Summaries
+
+```{r Model Summary: Fixing Nodule Density Rural Index (Distance), echo = FALSE}
+kable(
+  tidy(summary(fixing.nodule.density.by.distance.rural.LM)),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Summary of the fixing nodule density rural local adaptation index by distance model. Adjusted R-squared = ~0.",
+  col.names = c("Term", "Estimate", "SE", "t", "P-value")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{10pt}
+
+```{r Model Summary: Fixing Nodule Density Rural Index (HII), echo = FALSE}
+kable(
+  tidy(summary(fixing.nodule.density.by.HII.rural.LM)),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Summary of the fixing nodule density rural local adaptation index by HII model. Adjusted R-squared = ~0.",
+  col.names = c("Term", "Estimate", "SE", "t", "P-value")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{10pt}
+
+```{r Model Summary: Fixing Nodule Density Rural Index (ISC), echo = FALSE}
+kable(
+  tidy(summary(fixing.nodule.density.by.ISC.rural.LM)),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Summary of the fixing nodule density rural local adaptation index by ISC model. Adjusted R-squared = ~0.",
+  col.names = c("Term", "Estimate", "SE", "t", "P-value")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+
+
+\newpage
+## Urban Index
+
+### Fit the Regressions
+
+```{r Fit the Regressions: Fixing Nodule Density Urban Index, echo = TRUE}
+## Distance
+fixing.nodule.density.by.distance.urban.LM <- lm(
+  Fix_Nod_Density_LA_Urban ~ Distance_Scaled,
+  data = fixing.nodule.density.LA.urban.combined.data
+)
+
+## Human influence index
+fixing.nodule.density.by.HII.urban.LM <- lm(
+  Fix_Nod_Density_LA_Urban ~ Human_Influence_Index_Scaled,
+  data = fixing.nodule.density.LA.urban.combined.data
+)
+
+## Impervious surface cover
+fixing.nodule.density.by.ISC.urban.LM <- lm(
+  Fix_Nod_Density_LA_Urban ~ Mean_ISC_Scaled,
+  data = fixing.nodule.density.LA.urban.combined.data
+)
+```
+
+\vspace{10pt}
+
+### Check Model Assumptions
+
+```{r performance Diagnostics: Fixing Nodule Density Urban Index, echo = TRUE, eval = FALSE}
+## Distance
+check_model(fixing.nodule.density.by.distance.urban.LM)
+# Linear assumption met
+# Homogeneity of variance
+# Residuals approximately follow a normal distribution
+
+## Human influence index
+check_model(fixing.nodule.density.by.HII.urban.LM)
+# Linear assumption met
+# Homogeneity of variance
+# Residuals approximately follow a normal distribution
+
+## Impervious surface cover
+check_model(fixing.nodule.density.by.ISC.urban.LM)
+# Linear assumption met
+# Homogeneity of variance
+# Residuals approximately follow a normal distribution
+```
+
+\newpage
+
+### Model Summaries
+
+```{r Model Summary: Fixing Nodule Density Urban Index (Distance), echo = FALSE}
+kable(
+  tidy(summary(fixing.nodule.density.by.distance.urban.LM)),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Summary of the fixing nodule density urban local adaptation index by distance model. Adjusted R-squared = ~0.",
+  col.names = c("Term", "Estimate", "SE", "t", "P-value")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{10pt}
+
+```{r Model Summary: Fixing Nodule Density Urban Index (HII), echo = FALSE}
+kable(
+  tidy(summary(fixing.nodule.density.by.HII.urban.LM)),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Summary of the fixing nodule density urban local adaptation index by HII model. Adjusted R-squared = ~0.",
+  col.names = c("Term", "Estimate", "SE", "t", "P-value")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+\vspace{10pt}
+
+```{r Model Summary: Fixing Nodule Density Urban Index (ISC), echo = FALSE}
+kable(
+  tidy(summary(fixing.nodule.density.by.ISC.urban.LM)),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Summary of the fixing nodule density urban local adaptation index by ISC model. Adjusted R-squared = ~0.",
+  col.names = c("Term", "Estimate", "SE", "t", "P-value")
+) %>%
+  kable_styling(latex_options = c("HOLD_position", "striped"))
+```
+
+
+
+
+
+```{r Save the Workspace, include = FALSE}
+save.image("data_analysis/6-local_adaptation_by_urbanization/local_adaptation_by_urbanization_data.RData")
+```
+
+
+
+
+
+
+
+
+
+\newpage
+# R Session Information
+
+```{r R Packages, echo = FALSE}
+df_session_packages <- devtools::session_info()$packages %>%
+  as.data.frame(.) %>%
+  filter(attached == TRUE) %>%
+  dplyr::select(loadedversion, date) %>%
+  rownames_to_column()
+
+colnames(df_session_packages) <- c("Package", "Loaded Version", "Date")
+
+kable(
+  df_session_packages,
+  booktabs = TRUE,
+  caption = "Packages required for data management and analysis."
+) %>%
+  kable_styling(
+    full_width = FALSE,
+    latex_options = c("HOLD_position", "striped")
+  )
+```
