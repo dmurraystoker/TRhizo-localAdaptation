@@ -38,7 +38,10 @@ library(tidyverse)
 library(dada2)
 
 ## Load the workspace
-load("data_analysis/7-DADA2_pipeline/DADA2_pipeline-full_workspace.Rdata")
+#load("data_analysis/7-DADA2_pipeline/DADA2_pipeline-full_workspace.Rdata")
+
+# The workspace it too large to deposit on GitHub. If you would like the workspace,
+# please send me and email (dstoker92@gmail.com) so I can share it via Google Drive.
 ```
 
 
