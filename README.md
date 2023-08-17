@@ -3,13 +3,14 @@
 Data, metadata, and R code for “Mosaic of local adaptation between white clover and rhizobia along an urbanization gradient”
 ================
 David Murray-Stoker
+
 16 August 2023
 
 Data, metadata, and all R code for reproducing analyses for the manuscript:
 
 Murray-Stoker, D. and M. T. J. Johnson. Mosaic of local adaptation between white clover and rhizobia along an urbanization gradient.
 
-[![DOI](https://zenodo.org/badge/332053459.svg)]()
+[![DOI](https://zenodo.org/badge/678577873.svg)](https://zenodo.org/badge/latestdoi/678577873)
 
 
 ## Abstract
