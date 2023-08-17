@@ -3,13 +3,13 @@
 Data, metadata, and R code for “Mosaic of local adaptation between white clover and rhizobia along an urbanization gradient”
 ================
 David Murray-Stoker
-23 January 2021
+16 August 2023
 
 Data, metadata, and all R code for reproducing analyses for the manuscript:
 
-Murray-Stoker, D., and M. T. J. Johnson. Ecological consequences of urbanization on a legume-rhizobia mutualism.
+Murray-Stoker, D. and M. T. J. Johnson. Mosaic of local adaptation between white clover and rhizobia along an urbanization gradient.
 
-[![DOI](https://zenodo.org/badge/332053459.svg)](https://zenodo.org/badge/latestdoi/332053459)
+[![DOI](https://zenodo.org/badge/332053459.svg)]()
 
 
 ## Abstract
@@ -39,12 +39,12 @@ There are 5 primary data files from which all analyses and downstream variables 
 * localAdaptation-microbiome_data-soil.csv
   - Sample identifier data for soil microbiome inoculant samples.
 
-Metadata associated with these files and the `raw_data` equivalents is provided [here](link.md).
+Metadata associated with these files and the `raw_data` equivalents is provided [here](https://github.com/dmurraystoker/TRhizo-localAdaptation/tree/main/metadata.md).
 
 
 ### Sequences
 
-All raw sequence files are provided on NCBI at [BioProject Number](link).
+All raw sequence files are provided on NCBI under the BioProject accession [PRJNA1005557](https://www.ncbi.nlm.nih.gov/bioproject/PRJNA1005557).
 
 
 ### Data Analysis
