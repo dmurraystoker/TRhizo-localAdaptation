@@ -2,7 +2,7 @@
 
 Data, metadata, and R code for “Mosaic of local adaptation between white clover and rhizobia along an urbanization gradient”
 ================
-David Murray-Stoker \
+David Murray-Stoker
 
 16 August 2023
 
