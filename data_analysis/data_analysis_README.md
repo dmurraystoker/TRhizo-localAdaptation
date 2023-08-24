@@ -20,7 +20,7 @@ Here is a brief summary of the code:
 * 4-local_adaptation_indices = calculates all local adaptation indices.
 * 5-local_adaptation_index_correlations = calculates all correlations between fitness response variables.
 * 6-local_adaptation_by_urbanization = linear regressions of local adaptation indices against measures of urbanization.
-* 7-DADA2_pipeline = code to complete the DADA2 pipeline, with sequences available throguh NCBI.
+* 7-DADA2_pipeline = code to complete the DADA2 pipeline, with sequences available through NCBI.
 * 8-microbiome_analyses = code and workspace for all microbiome analyses
 * 9-figures = code to generate all the figures in the manuscript; minor edits were made using Adobe Illustrator.
 
