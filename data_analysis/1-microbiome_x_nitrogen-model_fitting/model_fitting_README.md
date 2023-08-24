@@ -11,6 +11,6 @@ David Murray-Stoker
 ## Workflow
 
 There are 2 script files: `microbiome_x_nitrogen-model_fitting.Rmd` and `microbiome_x_nitrogen-global_model_fitting.Rmd`.
-Both files are essentially identical, except the `microbiome_x_nitrogen-model_fitting.Rmd` used all 3 microbiome treatments (Local, Nonlocal~Rural~, and Nonlocal~Urban~) and `microbiome_x_nitrogen-global_model_fitting.Rmd` only used 3 microbiome treatments (Locan and Nonlocal~Global~; Nonlocal~Rural~ and Nonlocal~Urban~ were both re-coded as Nonlocal~Global~).
+Both files are essentially identical, except the `microbiome_x_nitrogen-model_fitting.Rmd` used all 3 microbiome treatments (Local, Nonlocal<sub>Rural</sub>, and Nonlocal<sub>Urban</sub>) and `microbiome_x_nitrogen-global_model_fitting.Rmd` only used 3 microbiome treatments (Locan and Nonlocal<sub>Global</sub>; Nonlocal<sub>Rural</sub> and Nonlocal<sub>Urban</sub> were both re-coded as Nonlocal<sub>Global</sub>).
 
 Both scripts conduct the model fitting and selection procedure, and each has its own workspace for reproducibility.
