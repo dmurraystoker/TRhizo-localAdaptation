@@ -16,7 +16,7 @@ Here is a brief summary of the code:
 
 * 1-microbiome_x_nitrogen-model_fitting = code and workspaces for the model selection and optimization procedure.
 * 2-microbiome_x_nitrogen-analyses = code and workspace for all linear mixed-effects models following the model selection procedure.
-* cockerhams_test = code and workspace to complete Cockerhams' test; note that some data formatting was performed in Excel.
+* 3-cockerhams_test = code and workspace to complete Cockerhams' test; note that some data formatting was performed in Excel.
 * 4-local_adaptation_indices = calculates all local adaptation indices.
 * 5-local_adaptation_index_correlations = calculates all correlations between fitness response variables.
 * 6-local_adaptation_by_urbanization = linear regressions of local adaptation indices against measures of urbanization.
